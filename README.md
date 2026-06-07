@@ -262,3 +262,73 @@ MIT — ver [LICENSE](LICENSE)
 ---
 
 > `factura-co` es una herramienta de orientación. Para decisiones fiscales concretas, consulta un contador público certificado.
+
+---
+
+## v0.3.0 — Suite financiera completa para freelancers internacionales
+
+### Nuevas funcionalidades
+
+#### 💱 Comparador de plataformas de pago internacional
+
+Resuelve la pregunta clave: **si me pagan $1.000 USD, ¿cuánto llega a mi cuenta?**
+
+```python
+from factura_co.comparador import comparar_plataformas, tabla_comparacion
+
+# Comparar todas las opciones para $1.000 USD a TRM de $4.200
+tabla = tabla_comparacion(1000, 4200)
+print(tabla)
+# #1  Wise            $995.90  -$4.10   $4,155,432  0.4%  ✓ mejor
+# #2  Payoneer        $980.00  -$20.00  $4,017,600  2.5%  (-$137,832)
+# #3  Binance P2P     $999.00  -$1.00   $4,154,580  1.1%  (-$852)
+# ...
+```
+
+Plataformas cubiertas: **PayPal, Wise, Payoneer, Upwork (escalonado), Freelancer, Binance P2P, Buda.com, SWIFT, Nequi Internacional**
+
+#### 📈 Proyección anual de ingresos
+
+```python
+from factura_co.proyeccion import proyeccion_anual, proyeccion_desde_usd
+
+# Proyección desde COP
+proy = proyeccion_anual(5_000_000, tipo_servicio="honorarios")
+print(f"Neto anual: ${proy['neto_anual']:,.0f} COP")
+print(f"Promedio mensual real: ${proy['neto_mensual_promedio']:,.0f} COP")
+
+# Proyección desde USD con plataforma
+proy_usd = proyeccion_desde_usd(1000, trm=4200, plataforma="wise")
+```
+
+#### 🔄 Calculadora inversa extendida con plataformas
+
+```python
+from factura_co.calculadora import calcular_bruto_necesario
+
+# ¿Cuánto debe pagarte el cliente para que TÚ recibas $3M netos?
+r = calcular_bruto_necesario(
+    neto_cop_deseado=3_000_000,
+    plataforma="wise",
+    trm=4200
+)
+print(f"Bruto necesario en COP: ${r['bruto_necesario']:,.0f}")
+print(f"El cliente debe enviarte: ${r['bruto_usd_necesario']:,.2f} USD")
+```
+
+#### 🌐 TRM en tiempo real
+
+```python
+from factura_co.trm_live import get_trm_hoy, get_trm_info
+
+trm = get_trm_hoy()   # Con 3 fuentes de fallback
+info = get_trm_info() # Incluye fuente y si es estimado
+```
+
+### Tests: 121 pasando
+
+```bash
+$ python -m pytest tests/ -q
+121 passed in 1.33s
+```
+
