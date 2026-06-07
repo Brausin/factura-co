@@ -3,71 +3,116 @@
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tests](https://github.com/Brausin/factura-co/actions/workflows/ci.yml/badge.svg)](https://github.com/Brausin/factura-co/actions)
-[![Version](https://img.shields.io/badge/version-0.2.0-orange)](https://github.com/Brausin/factura-co)
+[![Version](https://img.shields.io/badge/version-0.3.0-orange)](https://github.com/Brausin/factura-co)
 
-**Calculadora de retenciones, aportes y generador de documentos de cobro para freelancers colombianos.**
+**¿Sabes cuánto te van a descontar de tu próxima factura?**
 
-> Porque cobrar bien no debería ser un trabajo de tiempo completo.
+Como freelancer o independiente en Colombia, cuando facturas $5.000.000 **no recibes $5.000.000**.
+Tu cliente retiene el 11%, tú pagas salud y pensión, y al final te quedan $3.880.000. O menos.
 
----
-
-## ¿Por qué factura-co?
-
-Trabajar como freelancer en Colombia tiene sus complicaciones. Tres dolores que casi todos los independientes han vivido:
-
-**1. La retención en la fuente: ese porcentaje misterioso**
-Tu cliente te dice "te retengo el 11%" y tú asientes... pero ¿es correcto? ¿Es el 10%? ¿El 6%? ¿Depende del servicio o del valor? La respuesta está en el Estatuto Tributario, no en el Excel del contador que te cobró $200.000 por revisarlo.
-
-**2. Salud y pensión: ¿cuánto debo pagar este mes?**
-Como independiente, pagas tus propios aportes. El cálculo es sobre el 40% del ingreso. Pero... ¿el 40% de qué? ¿Del valor bruto? ¿Después de la retención? ¿Hay un mínimo? Muchos freelancers pagan de más, otros de menos, y pocos lo hacen bien.
-
-**3. ¿Cuánto me va a quedar realmente?**
-Antes de decirle el precio a un cliente, necesitas saber cuánto te va a llegar al bolsillo. Sin esa claridad, terminas trabajando por menos de lo que pensabas.
-
-**factura-co resuelve los tres con una sola línea de código.**
+`factura-co` calcula exactamente cuánto, por qué, y cómo planearlo — en una línea de Python o con una app web.
 
 ---
 
-## ¿Qué hace?
+## ¿Para quién es?
 
-Dado el valor de una factura, `factura-co` calcula:
+- **Desarrolladores y diseñadores** que facturan honorarios a empresas
+- **Consultores y asesores** con contratos por prestación de servicios
+- **Abogados, médicos y arquitectos** en ejercicio independiente
+- **Cualquier independiente** que quiera entender su ingreso neto real antes de negociar un precio
 
-| Concepto | Ejemplo ($5.000.000 en honorarios) |
-|---|---|
-| Valor bruto | $5.000.000 |
-| Retención en la fuente (11%) | -$550.000 |
-| IBC — base cotización (40%) | $2.000.000 |
-| Aporte salud (12.5%) | -$250.000 |
-| Aporte pensión (16%) | -$320.000 |
-| **Ingreso neto real** | **$3.880.000** |
+---
 
-```python
-from factura_co.calculadora import calcular_neto, generar_resumen
+## Demo rápido
 
-resultado = calcular_neto(5_000_000, "honorarios")
-generar_resumen(resultado)
+```
+Factura: $5.000.000 — Honorarios — No declarante — Bogotá
+
+  Valor bruto            $5.000.000
+  Retención fuente (11%)  -$550.000
+  IBC (40% del bruto)    $2.000.000
+  Aporte salud (12.5%)    -$250.000
+  Aporte pensión (16%)    -$320.000
+  ─────────────────────────────────
+  NETO A RECIBIR         $3.880.000  (77.6%)
 ```
 
 ---
 
-## Instalación
+## Casos de uso reales
+
+### 💻 Desarrollador web — $5.000.000 en honorarios
+
+Juan factura $5.000.000 a una empresa por desarrollo de un módulo. No es declarante de renta.
+
+```python
+from factura_co.calculadora import calcular_neto
+
+r = calcular_neto(5_000_000, "honorarios")
+print(f"Neto: ${r['neto']:,.0f}")    # $3.880.000
+print(f"Retención: ${r['valor_retenido']:,.0f}")   # $550.000
+```
+
+**CLI:**
+```bash
+python scripts/calcular.py --valor 5000000 --tipo honorarios
+```
+
+---
+
+### 🎨 Diseñadora — $1.800.000 en servicios (debajo del umbral)
+
+Laura factura $1.800.000 por servicios de diseño. ¿Aplica retención?
+
+```python
+r = calcular_neto(1_800_000, "servicios")
+# Servicios tienen umbral mínimo de 4 UVT (~$199.196 en 2025)
+# Si el valor supera el umbral, aplica retención del 6%
+```
+
+El umbral se calcula automáticamente según el UVT vigente del año.
+
+---
+
+### ⚖️ Abogado — $15.000.000, declarante de renta
+
+Carlos factura $15.000.000 en honorarios. Sus ingresos anuales superan 1.400 UVT — es declarante.
+
+```python
+r = calcular_neto(15_000_000, "honorarios", es_declarante=True)
+# Tarifa baja de 11% a 10%: ahorra $150.000 en retención
+print(f"Neto: ${r['neto']:,.0f}")    # $10.200.000
+```
+
+---
+
+## Tres formas de usar
+
+### 1. App web (recomendada)
 
 ```bash
 git clone https://github.com/Brausin/factura-co.git
 cd factura-co
-pip install -e .
-
-# Dependencias de la app web y CLI
 pip install -r requirements-app.txt
+streamlit run app/main.py
 ```
+
+La app incluye:
+- Calculadora con selector de tipo de servicio y descripción de cada uno
+- Desglose visual con explicaciones inline de cada descuento
+- **Calculadora inversa**: ingresa cuánto quieres recibir y calcula el bruto a facturar
+- Casos de uso reales con números concretos
+- Sección educativa: glosario, historial UVT, explicación de cada retención
+- Generador de cuenta de cobro en PDF y TXT
 
 ---
 
-## Uso rápido
-
-### CLI — desde la terminal
+### 2. CLI — desde la terminal
 
 ```bash
+pip install -e .
+pip install -r requirements-app.txt
+
 # Cálculo básico
 python scripts/calcular.py --valor 3000000 --tipo honorarios
 
@@ -77,89 +122,68 @@ python scripts/calcular.py --valor 8000000 --tipo honorarios --declarante
 # Exportar resultado a JSON
 python scripts/calcular.py --valor 5000000 --exportar
 
-# Generar cuenta de cobro TXT (interactivo)
-python scripts/calcular.py --valor 5000000 --documento
-
-# Ver todos los tipos de servicio y tarifas
+# Ver todos los tipos de servicio disponibles
 python scripts/calcular.py --listar-tipos
-
-# Versión
-python scripts/calcular.py --version
 ```
 
-### App web (Streamlit)
+**Ejemplo de salida:**
+
+```
+Valor factura:   $3.000.000
+Tipo servicio:   honorarios (no declarante)
+Retención (11%): -$330.000
+IBC (40%):       $1.200.000
+Salud (12.5%):   -$150.000
+Pensión (16%):   -$192.000
+─────────────────────────────
+NETO:            $2.328.000  (77.6%)
+```
+
+---
+
+### 3. Librería Python
 
 ```bash
-make run-app
-# o directamente:
-streamlit run app/main.py
+pip install -e .
 ```
-
-La app incluye:
-- Sidebar con todos los parámetros (tipo, declarante, aportes, ReteICA)
-- Desglose visual en columnas (retenciones | seguridad social)
-- **Neto a recibir** destacado en verde
-- Descarga de cuenta de cobro en TXT y PDF con un clic
-- Sección educativa con tablas de tarifas e historial UVT
-
-### API Python
 
 ```python
-from factura_co.calculadora import calcular_neto
-from factura_co.retenciones import calcular_ica, obtener_uvt
-from factura_co.documento_pdf import generar_pdf
+from factura_co.calculadora import calcular_neto, generar_resumen
+from factura_co.retenciones import obtener_uvt, calcular_ica
 
 # Cálculo completo
-resultado = calcular_neto(5_000_000, "honorarios", es_declarante=True)
-print(resultado["neto"])          # ingreso disponible
-print(resultado["neto_pct"])      # % del bruto
+resultado = calcular_neto(5_000_000, "honorarios")
+generar_resumen(resultado)
 
-# ICA (Bogotá, servicios profesionales — 9.66‰)
+# Solo retención, sin aportes
+ret = calcular_neto(5_000_000, "honorarios", incluir_aportes=False)
+
+# Calcular ReteICA para Bogotá
 ica = calcular_ica(5_000_000, "bogota", "servicios_profesionales")
-print(ica["valor_ica"])           # 48.300
+print(f"ReteICA: ${ica['valor_ica']:,}")  # $48.300
 
-# UVT por año
-print(obtener_uvt(2024))          # 47.065
-print(obtener_uvt(2025))          # 49.799
-
-# Generar PDF
-pdf = generar_pdf(
-    datos_freelancer={"nombre": "Juan Vargas", "cedula": "79.123.456"},
-    datos_cliente={"empresa": "Cliente SAS", "nit": "900.000.001-1"},
-    valor=5_000_000,
-    descripcion="Consultoría en transformación digital",
-)
-with open("cuenta_cobro.pdf", "wb") as f:
-    f.write(pdf)
+# Consultar UVT por año
+print(obtener_uvt(2024))   # 47065
+print(obtener_uvt(2025))   # 49799
+print(obtener_uvt())       # año más reciente
 ```
 
 ---
 
-## Tipos de servicio y tarifas
+## Instalación completa
 
-| Tipo | Descripción | No declarante | Declarante | Base mínima |
-|---|---|---|---|---|
-| `honorarios` | Servicios profesionales, técnicos | **11%** | 10% | Sin mínimo |
-| `servicios` | Servicios generales | **6%** | 4% | 4 UVT |
-| `arrendamiento` | Arriendo de bienes | **3.5%** | 3.5% | Sin mínimo |
-| `compras` | Compra de bienes | **3.5%** | 2.5% | 27 UVT |
-| `transporte` | Transporte nacional | **3.5%** | 3.5% | 27 UVT |
+```bash
+git clone https://github.com/Brausin/factura-co.git
+cd factura-co
 
-> **¿Declarante?** Si tus ingresos anuales superan ~1.400 UVT (~$69.7M en 2025), declaras renta.
+# Solo librería y CLI
+pip install -e .
 
----
+# Librería + app web + CLI
+pip install -r requirements-app.txt
+```
 
-## Historial UVT (2015–2025)
-
-| Año | Valor UVT | Resolución DIAN |
-|---|---|---|
-| 2015 | $28.279 | Res. 000228/2014 |
-| 2020 | $35.607 | Res. 000084/2019 |
-| 2023 | $42.412 | Res. 000178/2022 |
-| 2024 | $47.065 | Res. 000187/2023 |
-| **2025** | **$49.799** | **Res. 000186/2024** |
-
-Ver historial completo: [`data/uvt_history.json`](data/uvt_history.json)
+**Requisitos**: Python 3.8+
 
 ---
 
@@ -167,68 +191,74 @@ Ver historial completo: [`data/uvt_history.json`](data/uvt_history.json)
 
 ```
 factura-co/
-├── src/factura_co/
-│   ├── retenciones.py      # Retefuente, ICA, historial UVT
-│   ├── aportes.py          # Salud, pensión, IBC
-│   ├── calculadora.py      # Cálculo integrado neto
-│   ├── documento.py        # Cuenta de cobro TXT
-│   └── documento_pdf.py    # Cuenta de cobro PDF (fpdf2)
 ├── app/
-│   └── main.py             # App Streamlit
+│   └── main.py              # App Streamlit (5 secciones)
+├── src/factura_co/
+│   ├── calculadora.py       # calcular_neto(), generar_resumen()
+│   ├── retenciones.py       # calcular_retencion(), calcular_ica(), UVT
+│   ├── aportes.py           # calcular_aportes(), IBC
+│   └── documento.py         # generar_documento_txt()
+├── data/
+│   ├── uvt_history.json     # UVT 2015–2025 con resoluciones DIAN
+│   └── tablas_retencion_2025.json  # Tablas completas de retención 2025
 ├── scripts/
-│   └── calcular.py         # CLI
-├── tests/
-│   ├── test_retenciones.py # 30 tests originales
-│   └── test_uvt_ica.py     # 23 tests nuevos (UVT, ICA, PDF)
+│   ├── calcular.py          # CLI principal
+│   └── actualizar_uvt.py   # Actualiza uvt_history.json cada año
 ├── examples/
 │   ├── ejemplo_basico.py
 │   ├── ejemplo_honorarios_alto_valor.py
 │   ├── ejemplo_servicios_empresa.py
 │   └── ejemplo_arrendamiento.py
-├── data/
-│   └── uvt_history.json    # UVT 2015–2025 (DIAN)
-├── Makefile
-└── requirements-app.txt
-```
-
----
-
-## Comandos Make
-
-```bash
-make run-app       # Lanza la app Streamlit
-make run-tests     # pytest -v
-make test          # pytest -q
-make calcular      # Muestra --help del CLI
-make instalar-app  # Instala requirements-app.txt
-make ejemplo       # Cálculo rápido honorarios $3M
-make tipos         # Tabla de tipos de servicio
+├── tests/
+│   ├── test_retenciones.py
+│   └── test_documento.py
+└── .github/workflows/
+    ├── ci.yml               # Tests en cada push
+    └── actualizar_tablas.yml  # Actualización anual UVT (1 ene)
 ```
 
 ---
 
 ## Marco legal
 
-- **Art. 392 E.T.** — Retención en honorarios y servicios
-- **Art. 401 E.T.** — Retención en arrendamiento y compras
-- **Decreto 2418 de 2013** — Tarifas de retención
-- **Ley 1607 de 2012, Art. 26** — IBC para independientes (40%)
-- **Decreto 1601 de 2022** — Reglamentación SGSS independientes
-- **Ley 14 de 1983, Art. 33** — ICA municipal
-- **Art. 868 E.T.** — UVT (Unidad de Valor Tributario)
-- **Circular UGPP 01/2023** — Aportes para arrendadores pasivos
+| Concepto | Fuente |
+|---|---|
+| Retención en honorarios (11% / 10%) | Art. 392 E.T. |
+| Retención en servicios (6% / 4%) | Art. 392 E.T. |
+| Retención en arrendamiento (3.5%) | Art. 401 E.T. |
+| IBC independientes (40% ingreso bruto) | Art. 18 Ley 100/1993, Decreto 1601/2022 |
+| Salud independientes (12.5% IBC) | Art. 204 Ley 100/1993 |
+| Pensión independientes (16% IBC) | Art. 18 Ley 100/1993 |
+| UVT 2025 = $49.799 | Resolución DIAN 000186 de 2024 |
+| ICA Bogotá — servicios profesionales (9.66‰) | Acuerdo 65 de 2002, Concejo de Bogotá |
 
 ---
 
 ## Tests
 
 ```bash
-make run-tests
-# 53 passed in ~1.5s
+pip install pytest
+pytest tests/ -v
 ```
+
+---
+
+## Contribuir
+
+1. Fork del repositorio
+2. Crea tu rama: `git checkout -b feat/nueva-funcionalidad`
+3. Commit con mensaje descriptivo
+4. Pull request con descripción del cambio y fuente normativa si aplica
+
+Para agregar el UVT de un nuevo año: edita `UVT_VALORES_CONOCIDOS` en `scripts/actualizar_uvt.py`
+con el valor oficial de la resolución DIAN correspondiente.
 
 ---
 
 ## Licencia
 
-[MIT](LICENSE) © Brausin
+MIT — ver [LICENSE](LICENSE)
+
+---
+
+> `factura-co` es una herramienta de orientación. Para decisiones fiscales concretas, consulta un contador público certificado.
