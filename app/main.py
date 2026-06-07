@@ -28,6 +28,11 @@ from factura_co.retenciones import (
 from factura_co.aportes import SMMLV_2024, calcular_aportes
 from factura_co.documento import generar_documento_txt
 from factura_co import __version__
+from factura_co.plataformas import calcular_neto_plataforma, listar_plataformas
+from factura_co.comparador import comparar_plataformas, tabla_comparacion
+from factura_co.calculadora import calcular_bruto_necesario
+from factura_co.trm_live import get_trm_info
+from factura_co.proyeccion import proyeccion_anual, proyeccion_desde_usd, resumen_proyeccion
 
 UVT_ACTUAL = obtener_uvt()
 ANO_ACTUAL = max(UVT_HISTORY.keys())
@@ -120,7 +125,7 @@ with st.sidebar:
     st.divider()
     pagina = st.radio(
         "Ir a",
-        ["🏠 Inicio", "🧮 Calculadora", "🔄 Cuanto cobrar?", "💡 Casos de uso", "📚 Aprende"],
+        ["🏠 Inicio", "🧮 Calculadora", "🔄 Cuanto cobrar?", "💱 Plataformas de pago", "📈 Proyeccion anual", "💡 Casos de uso", "📚 Aprende"],
         label_visibility="collapsed",
     )
     st.divider()
@@ -661,6 +666,184 @@ Eres obligado a declarar renta en {ANO_ACTUAL} si cumples alguna de estas condic
 
     st.divider()
     st.caption("Contenido orientativo. Para decisiones fiscales, consulta un contador publico certificado.")
+
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PÁGINA: PLATAFORMAS DE PAGO
+# ──────────────────────────────────────────────────────────────────────────────
+elif pagina == "💱 Plataformas de pago":
+    st.markdown("# 💱 Plataformas de pago internacional")
+    st.markdown("Compara cuánto recibes en COP según por dónde te pague el cliente.")
+
+    # TRM
+    trm_info = get_trm_info()
+    trm_default = trm_info["trm"]
+    fuente_trm = trm_info["fuente"]
+
+    col_trm, col_monto = st.columns(2)
+    with col_trm:
+        trm = st.number_input(
+            "TRM (COP por 1 USD)",
+            min_value=1000.0, max_value=10000.0,
+            value=float(round(trm_default)),
+            step=10.0,
+            help=f"Fuente: {fuente_trm}",
+        )
+    with col_monto:
+        valor_usd = st.number_input(
+            "Valor en USD que te pagan",
+            min_value=1.0, max_value=100000.0,
+            value=1000.0, step=50.0,
+        )
+
+    tipo_upwork = st.select_slider(
+        "Historial en Upwork",
+        options=["nuevo", "medio", "senior"],
+        value="nuevo",
+        help="nuevo: <$500 con ese cliente | medio: $500-$10k | senior: >$10k",
+    )
+
+    st.divider()
+
+    # Tabla comparación
+    resultados = comparar_plataformas(valor_usd, trm, tipo_upwork)
+    mejor = resultados[0]
+    peor = resultados[-1]
+
+    col_m, col_p, col_d = st.columns(3)
+    with col_m:
+        st.metric("✅ Mejor opción", mejor["plataforma"],
+                  f"${mejor['valor_cop']:,.0f} COP")
+    with col_p:
+        st.metric("❌ Peor opción", peor["plataforma"],
+                  f"${peor['valor_cop']:,.0f} COP")
+    with col_d:
+        diff = mejor["valor_cop"] - peor["valor_cop"]
+        st.metric("💰 Diferencia", f"${diff:,.0f} COP",
+                  f"{(diff/mejor['valor_cop']*100):.1f}% más con la mejor")
+
+    st.divider()
+
+    # Tabla detallada
+    tabla_data = []
+    for r in resultados:
+        tabla_data.append({
+            "#": r["posicion"],
+            "Plataforma": r["plataforma"],
+            "USD que llegan": f"${r['valor_usd_neto']:,.2f}",
+            "Comisión USD": f"-${r['comision_usd']:,.2f}",
+            "TRM efectiva": f"${r['trm_efectiva']:,.0f}",
+            "Recibes COP": f"${r['valor_cop']:,.0f}",
+            "Costo total %": f"{r['costo_total_pct']:.1f}%",
+        })
+
+    df_tabla = pd.DataFrame(tabla_data)
+    st.dataframe(df_tabla, hide_index=True, use_container_width=True)
+
+    # Notas de la plataforma seleccionada
+    nombres_plat = [r["plataforma"] for r in resultados]
+    plat_sel_nombre = st.selectbox("Ver detalles de:", nombres_plat)
+    plat_sel = next(r for r in resultados if r["plataforma"] == plat_sel_nombre)
+    if plat_sel["notas"]:
+        st.markdown("**Notas importantes:**")
+        for nota in plat_sel["notas"]:
+            st.markdown(f"- {nota}")
+
+    st.caption("Comisiones aproximadas basadas en tarifas publicadas 2025. Verifica antes de usar.")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PÁGINA: PROYECCIÓN ANUAL
+# ──────────────────────────────────────────────────────────────────────────────
+elif pagina == "📈 Proyeccion anual":
+    st.markdown("# 📈 Proyección anual de ingresos")
+    st.markdown("Cuánto queda realmente después de retenciones, aportes e impuesto de renta.")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        modo_moneda = st.radio("Moneda de ingreso", ["Pesos COP", "Dólares USD"])
+    with col2:
+        meses = st.slider("Meses a proyectar", 1, 12, 12)
+
+    if modo_moneda == "Pesos COP":
+        ingreso_mensual = st.number_input(
+            "Ingreso mensual bruto (COP)",
+            min_value=100_000, max_value=100_000_000,
+            value=5_000_000, step=500_000,
+            format="%d",
+        )
+
+        col_serv, col_dec = st.columns(2)
+        with col_serv:
+            tipo_str = st.selectbox(
+                "Tipo de servicio",
+                ["honorarios", "servicios", "arrendamiento", "compras"],
+                index=0,
+            )
+        with col_dec:
+            es_declarante = st.checkbox("Soy declarante de renta", value=True)
+
+        proy = proyeccion_anual(
+            ingreso_mensual, tipo_str, es_declarante, incluir_aportes=True, meses=meses
+        )
+
+    else:  # USD
+        trm_info2 = get_trm_info()
+        col_usd, col_trm2 = st.columns(2)
+        with col_usd:
+            ingreso_usd = st.number_input(
+                "Ingreso mensual (USD)",
+                min_value=100.0, max_value=100000.0,
+                value=1000.0, step=100.0,
+            )
+        with col_trm2:
+            trm2 = st.number_input(
+                "TRM",
+                min_value=1000.0, max_value=10000.0,
+                value=float(round(trm_info2["trm"])),
+                step=10.0,
+            )
+
+        plataformas_lista = listar_plataformas()
+        plat_nombres = {p["nombre"]: p["id"] for p in plataformas_lista}
+        plat_sel2 = st.selectbox("Plataforma de cobro", list(plat_nombres.keys()))
+        plat_id2 = plat_nombres[plat_sel2]
+
+        tipo_str = st.selectbox("Tipo de servicio", ["honorarios", "servicios"], index=0)
+        es_declarante = st.checkbox("Soy declarante de renta", value=True)
+
+        proy = proyeccion_desde_usd(
+            ingreso_usd, trm2, plat_id2, tipo_str, es_declarante, meses
+        )
+
+    st.divider()
+
+    # Métricas principales
+    col_a, col_b, col_c = st.columns(3)
+    with col_a:
+        st.metric("Bruto anual", f"${proy['ingreso_bruto_anual']:,.0f}")
+    with col_b:
+        st.metric("Neto disponible anual", f"${proy['neto_anual']:,.0f}",
+                  f"{proy['neto_pct_bruto']:.1f}% del bruto")
+    with col_c:
+        st.metric("Promedio mensual real", f"${proy['neto_mensual_promedio']:,.0f}")
+
+    # Desglose
+    st.markdown("### Desglose de obligaciones")
+    desglose_data = [
+        {"Concepto": "Ingreso bruto anual", "Monto": f"${proy['ingreso_bruto_anual']:,.0f}", "Nota": ""},
+        {"Concepto": "(-) Aportes seguridad social", "Monto": f"-${proy['total_aportes_anual']:,.0f}", "Nota": "Salud + pensión"},
+        {"Concepto": "(-) Impuesto de renta estimado", "Monto": f"-${proy['impuesto_renta_estimado']:,.0f}", "Nota": f"Tasa efectiva: {proy['tasa_renta_efectiva_pct']:.1f}%"},
+        {"Concepto": "= NETO DISPONIBLE", "Monto": f"${proy['neto_anual']:,.0f}", "Nota": f"{proy['neto_pct_bruto']:.1f}% del bruto"},
+    ]
+    st.dataframe(pd.DataFrame(desglose_data), hide_index=True, use_container_width=True)
+
+    st.info(f"💡 **Ahorro mensual recomendado** para cubrir aportes y diferencia de renta: "
+            f"**${proy['ahorro_mensual_recomendado']:,.0f} COP/mes**")
+
+    st.caption("Estimado. Impuesto de renta simplificado (Art. 241 E.T.). "
+               "Consulte un contador para su declaración real.")
 
 
 # FOOTER

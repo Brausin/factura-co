@@ -144,3 +144,132 @@ def generar_resumen(resultado: dict) -> str:
     texto = "\n".join(lineas)
     print(texto)
     return texto
+
+
+def calcular_bruto_necesario(
+    neto_cop_deseado: float,
+    tipo_servicio: str = "honorarios",
+    es_declarante: bool = False,
+    incluir_aportes: bool = True,
+    plataforma: str | None = None,
+    trm: float | None = None,
+    tipo_upwork: str = "nuevo",
+    tolerancia: float = 1.0,
+    max_iter: int = 100,
+) -> dict:
+    """
+    Calcula el valor bruto que debes facturar para recibir un neto específico.
+
+    Resuelve la ecuación inversa de calcular_neto() por aproximaciones sucesivas
+    (búsqueda binaria), ya que retenciones y aportes no son lineales.
+
+    Si se pasa 'plataforma' y 'trm', también incluye las comisiones de la
+    plataforma en el cálculo (cuánto debe pagarte el cliente para que TÚ
+    recibas neto_cop_deseado después de todo).
+
+    Args:
+        neto_cop_deseado: COP que quieres recibir neto al final.
+        tipo_servicio: Tipo de servicio para retención.
+        es_declarante: True si declaras renta.
+        incluir_aportes: True para incluir salud y pensión.
+        plataforma: Si aplica, plataforma de cobro para incluir comisión.
+        trm: TRM necesaria si se pasa plataforma.
+        tipo_upwork: Tramo Upwork si aplica.
+        tolerancia: Diferencia máxima aceptable en COP (default 1).
+        max_iter: Máximo de iteraciones de búsqueda binaria.
+
+    Returns:
+        dict con: neto_deseado, bruto_necesario, diferencia_real, desglose_completo,
+                  bruto_usd_necesario (si se usó plataforma).
+
+    Raises:
+        ValueError: Si el neto deseado es negativo o mayor al límite posible.
+
+    Examples:
+        >>> r = calcular_bruto_necesario(3_000_000, "honorarios")
+        >>> r["bruto_necesario"] > 3_000_000
+        True
+
+        >>> # Recibir $3M neto después de retención + aportes
+        >>> r = calcular_bruto_necesario(3_000_000)
+        >>> abs(r["neto_real"] - 3_000_000) < 100
+        True
+    """
+    if neto_cop_deseado <= 0:
+        raise ValueError("El neto deseado debe ser positivo.")
+
+    # Búsqueda binaria para encontrar el bruto
+    lo = neto_cop_deseado       # mínimo posible (si retención fuera 0%)
+    hi = neto_cop_deseado * 4   # máximo generous (retención máxima ~75% teórico)
+
+    bruto_optimo = hi
+    desglose_optimo = None
+
+    for _ in range(max_iter):
+        mid = (lo + hi) / 2
+        desglose = calcular_neto(
+            mid, tipo_servicio, es_declarante, incluir_aportes
+        )
+        neto_actual = desglose["neto"]
+        diff = neto_actual - neto_cop_deseado
+
+        if abs(diff) <= tolerancia:
+            bruto_optimo = mid
+            desglose_optimo = desglose
+            break
+
+        if diff < 0:
+            lo = mid
+        else:
+            hi = mid
+            bruto_optimo = mid
+            desglose_optimo = desglose
+
+    if desglose_optimo is None:
+        desglose_optimo = calcular_neto(bruto_optimo, tipo_servicio, es_declarante, incluir_aportes)
+
+    resultado = {
+        "neto_deseado": neto_cop_deseado,
+        "bruto_necesario": round(bruto_optimo),
+        "neto_real": round(desglose_optimo["neto"]),
+        "diferencia": round(desglose_optimo["neto"] - neto_cop_deseado),
+        "desglose": desglose_optimo,
+        "tiene_plataforma": False,
+    }
+
+    # Si se especificó plataforma, calcular cuánto debe enviar el cliente en USD
+    if plataforma and trm:
+        from .plataformas import calcular_neto_plataforma
+        # Buscar el USD bruto que después de comisiones deja el COP bruto necesario
+        # cop_neto_plataforma = usd * (1 - comision%) * (1 - spread%) * trm
+        # usd_bruto = bruto_cop / ((1 - comision_pct) * (1 - spread_fx) * trm)
+        # Aproximación directa (suficientemente precisa para valores razonables)
+        lo_usd = bruto_optimo / (trm * 1.1)
+        hi_usd = bruto_optimo / (trm * 0.5)
+        bruto_usd = hi_usd
+        plat_desglose = None
+
+        for _ in range(max_iter):
+            mid_usd = (lo_usd + hi_usd) / 2
+            plat_r = calcular_neto_plataforma(mid_usd, plataforma, trm, tipo_upwork)
+            cop_plat = plat_r["valor_cop"]
+            diff = cop_plat - bruto_optimo
+
+            if abs(diff) <= tolerancia:
+                bruto_usd = mid_usd
+                plat_desglose = plat_r
+                break
+
+            if diff < 0:
+                lo_usd = mid_usd
+            else:
+                hi_usd = mid_usd
+                bruto_usd = mid_usd
+                plat_desglose = plat_r
+
+        resultado["tiene_plataforma"] = True
+        resultado["plataforma"] = plataforma
+        resultado["bruto_usd_necesario"] = round(bruto_usd, 2)
+        resultado["desglose_plataforma"] = plat_desglose
+
+    return resultado
