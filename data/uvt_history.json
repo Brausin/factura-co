@@ -1,0 +1,62 @@
+{
+  "_descripcion": "Valor de la Unidad de Valor Tributario (UVT) por año fiscal. Fuente: DIAN Colombia.",
+  "_marco_legal": "Artículo 868 del Estatuto Tributario. La UVT se fija anualmente mediante resolución de la DIAN.",
+  "_nota": "El UVT se utiliza para expresar bases mínimas, topes y rangos en la normativa tributaria de manera independiente de la inflación.",
+  "años": {
+    "2015": {
+      "valor": 28279,
+      "resolucion_dian": "Resolución 000228 de 2014",
+      "incremento_pct": 3.65
+    },
+    "2016": {
+      "valor": 29753,
+      "resolucion_dian": "Resolución 000114 de 2015",
+      "incremento_pct": 5.21
+    },
+    "2017": {
+      "valor": 31859,
+      "resolucion_dian": "Resolución 000102 de 2016",
+      "incremento_pct": 7.08
+    },
+    "2018": {
+      "valor": 33156,
+      "resolucion_dian": "Resolución 000062 de 2017",
+      "incremento_pct": 4.07
+    },
+    "2019": {
+      "valor": 34270,
+      "resolucion_dian": "Resolución 000024 de 2019",
+      "incremento_pct": 3.36
+    },
+    "2020": {
+      "valor": 35607,
+      "resolucion_dian": "Resolución 000084 de 2019",
+      "incremento_pct": 3.90
+    },
+    "2021": {
+      "valor": 36308,
+      "resolucion_dian": "Resolución 000111 de 2020",
+      "incremento_pct": 1.97
+    },
+    "2022": {
+      "valor": 38004,
+      "resolucion_dian": "Resolución 000140 de 2021",
+      "incremento_pct": 4.67
+    },
+    "2023": {
+      "valor": 42412,
+      "resolucion_dian": "Resolución 000178 de 2022",
+      "incremento_pct": 11.60
+    },
+    "2024": {
+      "valor": 47065,
+      "resolucion_dian": "Resolución 000187 de 2023",
+      "incremento_pct": 10.97
+    },
+    "2025": {
+      "valor": 49799,
+      "resolucion_dian": "Resolución 000186 de 2024",
+      "incremento_pct": 5.81
+    }
+  }
+}
