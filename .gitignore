@@ -68,3 +68,4 @@ documentos/
 .env
 .env.local
 secrets.py
+!requirements-app.txt
