@@ -1,0 +1,184 @@
+{
+  "_descripcion": "Tablas de retencion en la fuente e ICA vigentes para 2025. Para uso informativo y orientativo.",
+  "_marco_legal": [
+    "Estatuto Tributario colombiano (Decreto 624 de 1989)",
+    "Articulo 392 E.T.: Retencion sobre honorarios, comisiones, servicios, arrendamientos",
+    "Articulo 401 E.T.: Retencion sobre compras, transporte, arrendamiento de bienes muebles",
+    "Articulo 383 E.T.: Tabla de retencion para asalariados (referencia)",
+    "Decreto 2231 de 2023 (tarifas aplicables desde enero 2024)",
+    "Resolucion DIAN 000186 de 2024 (UVT 2025 = $49.799)"
+  ],
+  "_nota_uvt": "UVT 2025 = $49.799 segun Resolucion DIAN 000186 del 26 de diciembre de 2024",
+  "_ultima_actualizacion": "2025-01-01",
+  "uvt_2025": 49799,
+  "retencion_fuente": {
+    "_descripcion": "Tarifas de retencion en la fuente para pagos a personas naturales independientes",
+    "honorarios": {
+      "_descripcion": "Art. 392 E.T. Aplica a consultores, asesores, profesionales independientes, tecnicos. Incluye honorarios por servicios que requieren conocimiento especializado.",
+      "_ejemplos": ["Consultoria empresarial", "Diseno grafico", "Desarrollo de software", "Asesoria juridica", "Servicios medicos privados", "Arquitectura e ingenieria"],
+      "tarifa_no_declarante": 0.11,
+      "tarifa_no_declarante_pct": "11%",
+      "tarifa_declarante": 0.10,
+      "tarifa_declarante_pct": "10%",
+      "base_minima_uvt": 0,
+      "base_minima_pesos_2025": 0,
+      "aplica_umbral": false,
+      "nota": "No tiene umbral minimo. La retencion aplica desde el primer peso."
+    },
+    "servicios": {
+      "_descripcion": "Art. 392 E.T. Aplica a prestacion de servicios que no requieren titulo profesional especializado.",
+      "_ejemplos": ["Mantenimiento de equipos", "Servicios de aseo", "Mensajeria", "Reparaciones locativas", "Servicios tecnicos"],
+      "tarifa_no_declarante": 0.06,
+      "tarifa_no_declarante_pct": "6%",
+      "tarifa_declarante": 0.04,
+      "tarifa_declarante_pct": "4%",
+      "base_minima_uvt": 4,
+      "base_minima_pesos_2025": 199196,
+      "aplica_umbral": true,
+      "nota": "Solo aplica retencion si el pago supera 4 UVT = $199.196 en 2025."
+    },
+    "arrendamiento": {
+      "_descripcion": "Art. 401 E.T. Aplica al arrendamiento de bienes inmuebles y muebles.",
+      "_ejemplos": ["Arriendo de oficinas", "Arriendo de bodegas", "Arriendo de locales comerciales", "Arriendo de maquinaria"],
+      "tarifa_no_declarante": 0.035,
+      "tarifa_no_declarante_pct": "3.5%",
+      "tarifa_declarante": 0.035,
+      "tarifa_declarante_pct": "3.5%",
+      "base_minima_uvt": 0,
+      "base_minima_pesos_2025": 0,
+      "aplica_umbral": false,
+      "nota": "Tarifa igual para declarantes y no declarantes. Sin umbral minimo."
+    },
+    "compras": {
+      "_descripcion": "Art. 401 E.T. Aplica a la adquisicion de bienes tangibles por parte de agentes retenedores.",
+      "_ejemplos": ["Compra de materiales", "Adquisicion de equipos de computo", "Compra de insumos", "Adquisicion de mobiliario"],
+      "tarifa_no_declarante": 0.025,
+      "tarifa_no_declarante_pct": "2.5%",
+      "tarifa_declarante": 0.025,
+      "tarifa_declarante_pct": "2.5%",
+      "base_minima_uvt": 27,
+      "base_minima_pesos_2025": 1344573,
+      "aplica_umbral": true,
+      "nota": "Solo aplica si la compra supera 27 UVT = $1.344.573 en 2025."
+    },
+    "transporte": {
+      "_descripcion": "Art. 401 E.T. Aplica al transporte nacional de carga y pasajeros.",
+      "_ejemplos": ["Transporte terrestre de carga", "Servicio de courier", "Transporte de pasajeros"],
+      "tarifa_no_declarante": 0.035,
+      "tarifa_no_declarante_pct": "3.5%",
+      "tarifa_declarante": 0.035,
+      "tarifa_declarante_pct": "3.5%",
+      "base_minima_uvt": 4,
+      "base_minima_pesos_2025": 199196,
+      "aplica_umbral": true,
+      "nota": "Solo aplica si el pago supera 4 UVT = $199.196 en 2025."
+    }
+  },
+  "declarante_renta_2025": {
+    "_descripcion": "Condiciones para ser declarante de renta en 2025 (ano gravable 2025)",
+    "umbral_ingresos_uvt": 1400,
+    "umbral_ingresos_pesos": 69718600,
+    "umbral_patrimonio_uvt": 4500,
+    "umbral_patrimonio_pesos": 224095500,
+    "umbral_tarjeta_credito_uvt": 1400,
+    "umbral_consignaciones_uvt": 1400,
+    "nota": "Persona natural NO obligada a declarar si no cumple ninguna de estas condiciones."
+  },
+  "seguridad_social_independientes": {
+    "_descripcion": "Cotizaciones obligatorias a seguridad social para trabajadores independientes. Ley 1250 de 2008, Decreto 1601 de 2022.",
+    "ibc_porcentaje": 0.40,
+    "ibc_descripcion": "40% del ingreso bruto mensual. Minimo: 1 SMMLV. Maximo: 25 SMMLV.",
+    "smmlv_2024": 1300000,
+    "smmlv_2025_estimado": 1423500,
+    "salud": {
+      "tarifa": 0.125,
+      "tarifa_pct": "12.5%",
+      "base_legal": "Ley 100 de 1993, Art. 204"
+    },
+    "pension": {
+      "tarifa": 0.16,
+      "tarifa_pct": "16%",
+      "base_legal": "Ley 100 de 1993, Art. 18"
+    },
+    "total": {
+      "tarifa": 0.285,
+      "tarifa_pct": "28.5%",
+      "sobre_ibc": "28.5% del IBC (que es el 40% del ingreso bruto)"
+    }
+  },
+  "ica_bogota": {
+    "_descripcion": "Tarifas de ReteICA para Bogota D.C. por tipo de actividad economica.",
+    "_marco_legal": "Acuerdo 65 de 2002 del Concejo de Bogota. Ley 14 de 1983, Art. 33.",
+    "_nota": "El ICA se retiene al 100% del valor causado en la operacion.",
+    "servicios_profesionales": {
+      "tarifa_por_mil": 9.66,
+      "tarifa_pct": "0.966%",
+      "codigos_ciiu": ["6201", "6202", "6209", "7020", "7110", "7120", "6910", "8690"],
+      "descripcion": "Actividades de consultoria, programacion informatica, ingenieria, arquitectura, contabilidad, asesoria juridica",
+      "ejemplos": ["Desarrollo de software", "Consultoria de negocios", "Asesoria juridica", "Servicios de ingenieria", "Auditoria y contabilidad"]
+    },
+    "servicios_generales": {
+      "tarifa_por_mil": 4.14,
+      "tarifa_pct": "0.414%",
+      "codigos_ciiu": ["8110", "8121", "8122", "8129", "8130"],
+      "descripcion": "Actividades de servicios a edificios y paisajismo, servicios de limpieza, mantenimiento",
+      "ejemplos": ["Servicios de aseo", "Mantenimiento de edificios", "Jardineria", "Control de plagas"]
+    },
+    "comercio": {
+      "tarifa_por_mil": 11.04,
+      "tarifa_pct": "1.104%",
+      "codigos_ciiu": ["4511", "4520", "4530", "4540", "4711", "4719"],
+      "descripcion": "Comercio al por mayor y al por menor",
+      "ejemplos": ["Venta de vehiculos", "Comercio de ropa", "Supermercados", "Tiendas especializadas"]
+    },
+    "industria": {
+      "tarifa_por_mil": 6.9,
+      "tarifa_pct": "0.690%",
+      "codigos_ciiu": ["1011", "1020", "1030", "1040", "2410", "2511"],
+      "descripcion": "Actividades de manufactura y produccion industrial",
+      "ejemplos": ["Fabricacion de alimentos", "Manufactura de metales", "Produccion textil"]
+    }
+  },
+  "ica_otras_ciudades": {
+    "_descripcion": "Tarifas de referencia para principales ciudades. Verificar con la secretaria de hacienda local.",
+    "medellin": {
+      "servicios_profesionales": {"tarifa_por_mil": 8.0, "fuente": "Acuerdo Municipal Medellin"},
+      "servicios_generales": {"tarifa_por_mil": 5.0, "fuente": "Acuerdo Municipal Medellin"},
+      "comercio": {"tarifa_por_mil": 10.0, "fuente": "Acuerdo Municipal Medellin"}
+    },
+    "cali": {
+      "servicios_profesionales": {"tarifa_por_mil": 8.0, "fuente": "Acuerdo Municipal Cali"},
+      "servicios_generales": {"tarifa_por_mil": 4.0, "fuente": "Acuerdo Municipal Cali"},
+      "comercio": {"tarifa_por_mil": 9.0, "fuente": "Acuerdo Municipal Cali"}
+    },
+    "barranquilla": {
+      "servicios_profesionales": {"tarifa_por_mil": 8.0, "fuente": "Acuerdo Municipal Barranquilla"},
+      "servicios_generales": {"tarifa_por_mil": 4.0, "fuente": "Acuerdo Municipal Barranquilla"},
+      "comercio": {"tarifa_por_mil": 8.0, "fuente": "Acuerdo Municipal Barranquilla"}
+    }
+  },
+  "ejemplo_calculo": {
+    "_descripcion": "Ejemplo completo: freelancer factura $5.000.000 en honorarios (no declarante, Bogota)",
+    "valor_bruto": 5000000,
+    "tipo_servicio": "honorarios",
+    "declarante": false,
+    "retencion_fuente": {
+      "tarifa": 0.11,
+      "valor": 550000
+    },
+    "ica_bogota": {
+      "tarifa_por_mil": 9.66,
+      "valor": 48300
+    },
+    "seguridad_social": {
+      "ibc": 2000000,
+      "salud": 250000,
+      "pension": 320000,
+      "total": 570000
+    },
+    "neto_sin_ica": 3880000,
+    "neto_con_ica": 3831700,
+    "pct_neto_sin_ica": "77.6%",
+    "pct_neto_con_ica": "76.6%"
+  }
+}
