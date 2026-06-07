@@ -1,0 +1,92 @@
+# actualizar_tablas.yml
+#
+# Actualiza automáticamente data/uvt_history.json al inicio de cada año.
+# También se puede ejecutar manualmente desde GitHub Actions → Run workflow.
+#
+# El script scripts/actualizar_uvt.py verifica si el año actual ya está
+# registrado y, si no, agrega el valor del UVT desde la tabla hardcoded.
+# Para agregar un nuevo año: editar UVT_VALORES_CONOCIDOS en el script.
+
+name: Actualizar tablas UVT
+
+on:
+  # Ejecutar el 1 de enero a las 9:00 UTC (4:00 AM Colombia)
+  schedule:
+    - cron: "0 9 1 1 *"
+
+  # Permitir ejecución manual desde la interfaz de GitHub
+  workflow_dispatch:
+    inputs:
+      forzar:
+        description: "Forzar actualización aunque el año ya exista"
+        required: false
+        default: "false"
+        type: boolean
+
+jobs:
+  actualizar-uvt:
+    name: Actualizar UVT año vigente
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write   # Necesario para hacer push
+
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt 2>/dev/null || true
+
+      - name: Ejecutar actualizador de UVT
+        id: actualizar
+        run: |
+          python scripts/actualizar_uvt.py | tee /tmp/uvt_output.txt
+          # Detectar si hubo cambio real
+          if git diff --quiet data/uvt_history.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No se detectaron cambios en uvt_history.json"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Cambios detectados en uvt_history.json"
+          fi
+
+      - name: Commit y push si hay cambios
+        if: steps.actualizar.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          YEAR=$(date +%Y)
+          UVT_VALUE=$(python -c "import json; d=json.load(open('data/uvt_history.json')); print(d['años'].get(str($YEAR), {}).get('valor', 'N/A'))")
+
+          git add data/uvt_history.json
+          git commit -m "datos: actualiza UVT $YEAR = \$$UVT_VALUE [skip ci]"
+          git push origin main
+
+          echo "Commit realizado: UVT $YEAR = \$$UVT_VALUE"
+
+      - name: Sin cambios — nada que hacer
+        if: steps.actualizar.outputs.changed == 'false'
+        run: |
+          echo "El año $(date +%Y) ya está registrado en uvt_history.json."
+          echo "Para agregar un nuevo año, edita UVT_VALORES_CONOCIDOS en scripts/actualizar_uvt.py"
+
+      - name: Resumen del historial
+        run: |
+          echo "=== Historial UVT actual ==="
+          python -c "
+          import json
+          d = json.load(open('data/uvt_history.json'))
+          for ano, info in sorted(d['años'].items()):
+              print(f'  {ano}: \${info[\"valor\"]:,}')
+          "
