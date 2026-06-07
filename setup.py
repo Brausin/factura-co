@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="factura-co",
-    version="0.1.0",
+    version="0.2.0",
     author="Brausin",
     author_email="juansvargasb@gmail.com",
     description="Calculadora de retenciones, aportes y generador de documentos de cobro para freelancers colombianos",
