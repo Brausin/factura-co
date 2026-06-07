@@ -69,3 +69,6 @@ documentos/
 .env.local
 secrets.py
 !requirements-app.txt
+
+# Herramientas internas de desarrollo
+.claude/
