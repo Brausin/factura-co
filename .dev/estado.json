@@ -1,0 +1,21 @@
+{
+  "fecha": "2026-06-08T04:47:18.385662Z",
+  "ultimo_commit": "bf76d55",
+  "modulos_completados": [
+    "factura_pdf.py — generar_factura(datos)->bytes con fpdf2 (API plana) + 24 tests",
+    "app/ui.py — sistema de diseno dark finance (paleta, CSS, card/barra_h/badge/seccion, Plotly barras/area/donut)",
+    "app/main.py — rediseno completo: 6 secciones (Inicio, Plataformas, Comparador, Calculadora, Proyeccion, Factura), Plotly, sin st.metric/bar_chart/matplotlib",
+    "examples/ejemplo_factura_pdf.py + README actualizado"
+  ],
+  "ya_existian": [
+    "plataformas.py (9 plataformas), comparador.py, trm_live.py (3 fuentes), proyeccion.py (Art.241 ET), calculadora.py (calcular_bruto_necesario binary search)"
+  ],
+  "en_progreso": "",
+  "siguiente_paso": "colombia-data-insights: convertir charts matplotlib->Plotly (item H), KPI ticker HTML (item I), GitHub Actions TRM/IPC (item J). En factura-co opcional: pagina de cuenta de cobro (documento_pdf) en la app y tests de snapshot del PDF.",
+  "tests_pasando": 145,
+  "notas_tecnicas": "App verificada con streamlit.testing.v1.AppTest recorriendo las 6 paginas + submit de factura (0 excepciones). Streamlit 1.58: migrado use_container_width->width='stretch'. fpdf2 con fuentes core latin-1 (normalize_text override). /tmp == C:/Users/juans/AppData/Local/Temp en este entorno (Git Bash MINGW64).",
+  "pendiente_diseno": [
+    "Opcional: pagina Cuenta de cobro en la app usando documento_pdf.generar_pdf",
+    "Opcional: snapshot/golden test del PDF de factura"
+  ]
+}
