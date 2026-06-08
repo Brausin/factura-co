@@ -168,6 +168,29 @@ print(obtener_uvt(2025))   # 49799
 print(obtener_uvt())       # año más reciente
 ```
 
+#### Generar una factura en PDF
+
+```python
+from factura_co.factura_pdf import generar_factura
+
+pdf_bytes = generar_factura({
+    "nombre_freelancer": "Ana García",
+    "nit_freelancer": "52.123.456-7",
+    "nombre_cliente": "Tech Corp SAS",
+    "nit_cliente": "900.123.456-7",
+    "descripcion_servicio": "Desarrollo de API de pagos — Sprint 3",
+    "valor_cop": 5_000_000,
+    "retencion_pct": 11,             # acepta porcentaje (11) o fracción (0.11)
+    "numero_factura": "FV-2026-014",
+})
+with open("factura.pdf", "wb") as f:
+    f.write(pdf_bytes)
+```
+
+Soporta varios ítems (`items=[(desc, valor), ...]`), datos de pago (banco,
+cuenta) y notas al pie. Genera el desglose de retención y el total automáticamente.
+Ver `examples/ejemplo_factura_pdf.py`.
+
 ---
 
 ## Instalación completa
@@ -192,26 +215,27 @@ pip install -r requirements-app.txt
 ```
 factura-co/
 ├── app/
-│   └── main.py              # App Streamlit (5 secciones)
+│   ├── main.py              # App Streamlit dark finance (6 secciones)
+│   └── ui.py                # Sistema de diseño: paleta, CSS, componentes, Plotly
 ├── src/factura_co/
-│   ├── calculadora.py       # calcular_neto(), generar_resumen()
+│   ├── calculadora.py       # calcular_neto(), calcular_bruto_necesario()
 │   ├── retenciones.py       # calcular_retencion(), calcular_ica(), UVT
 │   ├── aportes.py           # calcular_aportes(), IBC
-│   └── documento.py         # generar_documento_txt()
+│   ├── plataformas.py       # calcular_neto_plataforma() — 9 plataformas
+│   ├── comparador.py        # comparar_plataformas(), mejor_plataforma()
+│   ├── proyeccion.py        # proyeccion_anual(), impuesto renta Art. 241 ET
+│   ├── trm_live.py          # get_trm_hoy() con 3 fuentes y respaldo
+│   ├── documento.py         # generar_documento_txt()
+│   ├── documento_pdf.py     # generar_pdf() — cuenta de cobro
+│   └── factura_pdf.py       # generar_factura() — factura PDF (API plana)
 ├── data/
 │   ├── uvt_history.json     # UVT 2015–2025 con resoluciones DIAN
 │   └── tablas_retencion_2025.json  # Tablas completas de retención 2025
 ├── scripts/
 │   ├── calcular.py          # CLI principal
 │   └── actualizar_uvt.py   # Actualiza uvt_history.json cada año
-├── examples/
-│   ├── ejemplo_basico.py
-│   ├── ejemplo_honorarios_alto_valor.py
-│   ├── ejemplo_servicios_empresa.py
-│   └── ejemplo_arrendamiento.py
-├── tests/
-│   ├── test_retenciones.py
-│   └── test_documento.py
+├── examples/                # Casos de uso ejecutables (incl. factura PDF)
+├── tests/                   # 145+ pruebas (retención, plataformas, factura…)
 └── .github/workflows/
     ├── ci.yml               # Tests en cada push
     └── actualizar_tablas.yml  # Actualización anual UVT (1 ene)
