@@ -1,855 +1,520 @@
 """
-main.py — Calculadora visual de ingresos para independientes colombianos.
+main.py — factura-co · Calculadora financiera para freelancers colombianos.
+
+Aplicación Streamlit con estética "dark finance": navegación por secciones,
+componentes visuales custom (ver app/ui.py) y gráficos Plotly. Reúne todas las
+herramientas del paquete factura_co en una sola interfaz:
+
+    Inicio · Plataformas · Comparador · Calculadora inversa · Proyección · Factura
 
 Ejecutar:
     streamlit run app/main.py
-
-Requiere:
-    pip install streamlit pandas
 """
 
 import sys
-import json
 from pathlib import Path
 from datetime import date
 
+# Permite importar el paquete tanto instalado como desde ./src
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent))
 
 import streamlit as st
 import pandas as pd
 
-from factura_co.calculadora import calcular_neto
-from factura_co.retenciones import (
-    TABLA_RETENCIONES,
-    calcular_ica,
-    obtener_uvt,
-    UVT_HISTORY,
-)
-from factura_co.aportes import SMMLV_2024, calcular_aportes
-from factura_co.documento import generar_documento_txt
 from factura_co import __version__
+from factura_co.aportes import SMMLV_2024
+from factura_co.calculadora import calcular_neto, calcular_bruto_necesario
 from factura_co.plataformas import calcular_neto_plataforma, listar_plataformas
-from factura_co.comparador import comparar_plataformas, tabla_comparacion
-from factura_co.calculadora import calcular_bruto_necesario
+from factura_co.comparador import comparar_plataformas, mejor_plataforma
+from factura_co.proyeccion import proyeccion_anual, proyeccion_desde_usd
 from factura_co.trm_live import get_trm_info
-from factura_co.proyeccion import proyeccion_anual, proyeccion_desde_usd, resumen_proyeccion
+from factura_co.factura_pdf import generar_factura, _desglose_factura
 
-UVT_ACTUAL = obtener_uvt()
-ANO_ACTUAL = max(UVT_HISTORY.keys())
+import ui
+from ui import COLORS, card, fila_cards, barra_h, badge, seccion, md
 
-TIPOS_SERVICIO = {
-    "honorarios": {
-        "label": "Honorarios",
-        "descripcion": "Para consultores, abogados, medicos, disenadores, desarrolladores y otros profesionales independientes.",
-        "icono": "💼",
-        "articulo": "Art. 392 E.T.",
-        "tarifa_nd": "11%",
-        "tarifa_d": "10%",
-    },
-    "servicios": {
-        "label": "Servicios generales",
-        "descripcion": "Mantenimiento, instalacion, reparaciones y servicios tecnicos. Tarifa mas baja que honorarios.",
-        "icono": "🔧",
-        "articulo": "Art. 392 E.T.",
-        "tarifa_nd": "6%",
-        "tarifa_d": "4%",
-    },
-    "arrendamiento": {
-        "label": "Arrendamiento",
-        "descripcion": "Arriendo de inmuebles o bienes muebles. Tarifa fija independiente de si declara renta.",
-        "icono": "🏠",
-        "articulo": "Art. 401 E.T.",
-        "tarifa_nd": "3.5%",
-        "tarifa_d": "3.5%",
-    },
-    "compras": {
-        "label": "Compras de bienes",
-        "descripcion": "Venta de productos, materiales o bienes tangibles a empresas.",
-        "icono": "📦",
-        "articulo": "Art. 401 E.T.",
-        "tarifa_nd": "2.5%",
-        "tarifa_d": "2.5%",
-    },
-    "transporte": {
-        "label": "Transporte",
-        "descripcion": "Transporte nacional de carga o pasajeros.",
-        "icono": "🚚",
-        "articulo": "Art. 401 E.T.",
-        "tarifa_nd": "3.5%",
-        "tarifa_d": "3.5%",
-    },
-}
+C = COLORS  # alias corto para los f-strings de estilo
 
-MUNICIPIOS_ICA = {
-    "bogota": "Bogota D.C.",
-    "medellin": "Medellin",
-    "cali": "Cali",
-    "barranquilla": "Barranquilla",
-    "otro": "Otro municipio",
-}
 
+# ── Configuración base ───────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="factura-co | Calculadora freelancer Colombia",
+    page_title="factura-co · Finanzas freelancer Colombia",
     page_icon="🧾",
     layout="wide",
     initial_sidebar_state="expanded",
 )
-
-st.markdown("""
-<style>
-.neto-label { font-size: 0.85rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.1rem; }
-.neto-valor { font-size: 2.8rem; font-weight: 800; color: #16a34a; margin: 0; }
-.neto-pct   { font-size: 1rem; color: #6b7280; margin-top: 0.2rem; }
-.caso-card {
-    background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6;
-    border-radius: 8px; padding: 1rem 1.2rem; margin-bottom: 0.8rem;
-}
-.caso-card h4 { margin: 0 0 0.3rem 0; color: #1e293b; font-size: 1rem; }
-.caso-card p  { margin: 0; color: #475569; font-size: 0.875rem; }
-.neto-card {
-    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-    border: 2px solid #16a34a; border-radius: 12px; padding: 1.5rem; text-align: center;
-}
-.warn-box {
-    background: #fffbeb; border: 1px solid #f59e0b; border-radius: 6px;
-    padding: 0.7rem 1rem; font-size: 0.85rem; color: #92400e;
-}
-</style>
-""", unsafe_allow_html=True)
+ui.apply_styles()
 
 
-# SIDEBAR
-with st.sidebar:
-    st.markdown("## 🧾 factura-co")
-    st.caption(f"v{__version__} · UVT {ANO_ACTUAL}: **${UVT_ACTUAL:,}**")
-    st.divider()
-    pagina = st.radio(
-        "Ir a",
-        ["🏠 Inicio", "🧮 Calculadora", "🔄 Cuanto cobrar?", "💱 Plataformas de pago", "📈 Proyeccion anual", "💡 Casos de uso", "📚 Aprende"],
-        label_visibility="collapsed",
+TIPOS_SERVICIO = {
+    "honorarios": "💼 Honorarios (consultoría, desarrollo, diseño)",
+    "servicios": "🔧 Servicios generales (técnicos, mantenimiento)",
+    "arrendamiento": "🏠 Arrendamiento",
+    "compras": "📦 Compras de bienes",
+    "transporte": "🚚 Transporte",
+}
+
+UPWORK_TRAMOS = {
+    "nuevo": "Nuevo cliente (20% / 10%)",
+    "medio": "Cliente recurrente",
+    "senior": "Cliente consolidado (5%)",
+}
+
+PLATAFORMAS = listar_plataformas()
+PLAT_NOMBRES = {p["id"]: p["nombre"] for p in PLATAFORMAS}
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def trm_info_cached() -> dict:
+    """TRM en vivo con caché de 30 min para no llamar la API en cada rerun."""
+    return get_trm_info()
+
+
+def trm_badge(info: dict) -> str:
+    if info["es_estimado"]:
+        return badge("estimada", COLORS["gold"])
+    return badge("en vivo", COLORS["green"])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PÁGINA · INICIO
+# ─────────────────────────────────────────────────────────────────────────────
+def pagina_inicio(trm_info: dict):
+    trm = trm_info["trm"]
+    md("<div style='font-size:34px;font-weight:700;letter-spacing:-.02em'>"
+       "factura&#8209;co</div>"
+       f"<div style='color:{C['muted']};font-size:15px;margin-bottom:6px'>"
+       "Cuánto recibes realmente como freelancer en Colombia — retenciones, "
+       "aportes, comisiones de plataforma y proyección anual.</div>")
+
+    smmlv_usd = SMMLV_2024 / trm
+    mejor = mejor_plataforma(1000, trm)
+
+    md(seccion("Indicadores de hoy", trm_info["fuente"]))
+    md(fila_cards([
+        card("TRM USD/COP", ui.fmt_cop(trm), trm_badge(trm_info), COLORS["blue"]),
+        card("Mejor plataforma · US$1.000", mejor["plataforma"],
+             f"Neto {ui.fmt_cop(mejor['valor_cop'])}", COLORS["green"]),
+        card("SMMLV en dólares", ui.fmt_usd(smmlv_usd),
+             f"{ui.fmt_cop(SMMLV_2024)} / mes", COLORS["gold"]),
+    ]))
+
+    # Top plataformas para una referencia de US$1.000
+    comp = comparar_plataformas(1000, trm)
+    md(seccion("Recibir US$1.000 hoy", "Neto en COP según plataforma de cobro"))
+    fig = ui.plotly_barras_h(
+        [r["plataforma"] for r in comp],
+        [r["valor_cop"] for r in comp],
+        color=COLORS["green"], fmt="$,.0f",
     )
-    st.divider()
-    st.caption(
-        "Basado en el Estatuto Tributario colombiano.\n"
-        "Esta herramienta es orientativa. Para decisiones fiscales, consulta un contador certificado."
-    )
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+
+    md(seccion("Herramientas", ""))
+    cols = st.columns(3)
+    tarjetas = [
+        ("💱 Plataformas", "Comisión real de PayPal, Wise, Payoneer, Upwork y más."),
+        ("🔄 Comparador", "Cuál te deja más COP para un monto en USD."),
+        ("🧮 Calculadora inversa", "Cuánto cobrar para recibir un neto objetivo."),
+        ("📈 Proyección", "Renta anual estimada con Art. 241 ET."),
+        ("🧾 Factura", "Genera un PDF profesional listo para enviar."),
+        ("📊 Datos reales", "Comisiones y tarifas oficiales, TRM en vivo."),
+    ]
+    for i, (titulo, desc) in enumerate(tarjetas):
+        with cols[i % 3]:
+            md(f"<div style='background:{C['card']};border:1px solid {C['border']};"
+               f"border-radius:12px;padding:16px;margin:6px 0;min-height:96px'>"
+               f"<div style='font-weight:600;font-size:15px'>{titulo}</div>"
+               f"<div style='color:{C['muted']};font-size:13px;margin-top:6px'>"
+               f"{desc}</div></div>")
 
 
-# INICIO
-if pagina == "🏠 Inicio":
-    st.markdown("# 🧾 factura-co")
-    st.markdown("### Sabe cuanto te van a descontar de tu proxima factura?")
-    st.markdown("""
-Como freelancer o independiente en Colombia, cuando facturas $5.000.000 **no recibes $5.000.000**.
+# ─────────────────────────────────────────────────────────────────────────────
+# PÁGINA · PLATAFORMAS
+# ─────────────────────────────────────────────────────────────────────────────
+def pagina_plataformas(trm_info: dict):
+    md("<div style='font-size:26px;font-weight:700'>💱 Plataformas de cobro</div>")
+    md(f"<div style='color:{C['muted']};font-size:14px'>Comisión real y neto en "
+       "pesos para un pago internacional.</div>")
 
-Tu cliente descuenta retencion en la fuente, tu pagas salud y pension, y al final te queda mucho menos de lo esperado.
-**factura-co** te muestra exactamente cuanto, por que, y como planearlo.
-    """)
-
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns([1, 1])
     with col1:
-        st.markdown("""
-<div class="caso-card">
-<h4>🔍 Calcula tu neto real</h4>
-<p>Ingresa el valor de tu factura y ve al instante cuanto te queda despues de retenciones y aportes.</p>
-</div>""", unsafe_allow_html=True)
+        valor_usd = st.slider("Monto del cliente (USD)", 50, 10_000, 1_000, 50)
     with col2:
-        st.markdown("""
-<div class="caso-card">
-<h4>💰 Calcula cuanto cobrar</h4>
-<p>Quieres recibir $4.000.000 netos? Calcula el valor bruto que debes facturar para llegar a eso.</p>
-</div>""", unsafe_allow_html=True)
-    with col3:
-        st.markdown("""
-<div class="caso-card">
-<h4>📚 Entiende los numeros</h4>
-<p>Aprende que es la retencion en la fuente, el IBC, el SMMLV y por que te descuentan lo que te descuentan.</p>
-</div>""", unsafe_allow_html=True)
+        plat_id = st.selectbox("Plataforma", [p["id"] for p in PLATAFORMAS],
+                               format_func=lambda x: PLAT_NOMBRES[x])
 
-    st.divider()
-    st.markdown("### Que pasa con una factura de $5.000.000 en honorarios?")
+    trm = st.number_input("TRM USD/COP", 2_000.0, 8_000.0,
+                          float(trm_info["trm"]), 10.0)
 
-    ejemplo = calcular_neto(5_000_000, "honorarios", es_declarante=False)
-    apo_ej = ejemplo["aportes"]
+    kwargs = {}
+    if plat_id == "upwork":
+        tramo = st.selectbox("Historial con el cliente (Upwork)",
+                             list(UPWORK_TRAMOS), format_func=lambda x: UPWORK_TRAMOS[x])
+        kwargs["tipo_upwork"] = tramo
 
-    col_a, col_b = st.columns([1, 1])
-    with col_a:
-        st.markdown(f"""
-| Concepto | Monto |
-|---|---|
-| Valor bruto facturado | **$5.000.000** |
-| Retencion en la fuente (11%) | -${ejemplo['valor_retenido']:,.0f} |
-| IBC — base cotizacion (40%) | ${apo_ej['ibc']:,.0f} |
-| Aporte salud (12.5% del IBC) | -${apo_ej['aporte_salud']:,.0f} |
-| Aporte pension (16% del IBC) | -${apo_ej['aporte_pension']:,.0f} |
-| **Ingreso neto real** | **${ejemplo['neto']:,.0f}** |
-        """)
-    with col_b:
-        pct = round(ejemplo['neto'] / 5_000_000 * 100, 1)
-        st.markdown(f"""
-<div class="neto-card">
-<p class="neto-label">De $5.000.000 te queda</p>
-<p class="neto-valor">${ejemplo['neto']:,.0f}</p>
-<p class="neto-pct">El <strong>{pct}%</strong> del valor facturado</p>
-</div>
-        """, unsafe_allow_html=True)
+    r = calcular_neto_plataforma(valor_usd, plat_id, trm, **kwargs)
 
-    st.divider()
-    st.info("👈 Usa el menu lateral para ir a la Calculadora o ver los Casos de uso.")
+    bruto_cop = valor_usd * trm
+    md(seccion("Resultado", r["descripcion"]))
+    md(fila_cards([
+        card("Recibes (neto)", ui.fmt_cop(r["valor_cop"]),
+             badge(f"costo {r['costo_total_pct']:.1f}%", COLORS["gold"]),
+             COLORS["green"]),
+        card("Comisión total", ui.fmt_usd(r["comision_usd"]),
+             f"≈ {ui.fmt_cop(r['comision_usd'] * trm)}", COLORS["red"]),
+        card("TRM efectiva", ui.fmt_cop(r["trm_efectiva"]),
+             f"spread {r['spread_fx_pct']*100:.1f}%", COLORS["blue"]),
+    ]))
+
+    # Desglose visual: del bruto teórico al neto recibido
+    md(seccion("De US$ a COP", "A dónde va cada peso"))
+    md(barra_h("Valor bruto (USD × TRM)", bruto_cop, bruto_cop,
+               COLORS["muted"], ui.fmt_cop(bruto_cop)))
+    md(barra_h("Comisión de plataforma", r["comision_usd"] * trm, bruto_cop,
+               COLORS["red"], ui.fmt_cop(r["comision_usd"] * trm)))
+    md(barra_h("Pérdida por spread FX", bruto_cop * r["spread_fx_pct"], bruto_cop,
+               COLORS["gold"], ui.fmt_cop(round(bruto_cop * r["spread_fx_pct"]))))
+    md(barra_h("Neto que recibes", r["valor_cop"], bruto_cop,
+               COLORS["green"], ui.fmt_cop(r["valor_cop"])))
+
+    if r["notas"]:
+        st.caption(f"ℹ️ {r['notas']}")
 
 
-# CALCULADORA PRINCIPAL
-elif pagina == "🧮 Calculadora":
-    st.markdown("## 🧮 Calculadora de ingresos")
+# ─────────────────────────────────────────────────────────────────────────────
+# PÁGINA · COMPARADOR
+# ─────────────────────────────────────────────────────────────────────────────
+def pagina_comparador(trm_info: dict):
+    md("<div style='font-size:26px;font-weight:700'>🔄 Comparador de plataformas</div>")
+    md(f"<div style='color:{C['muted']};font-size:14px'>Cuál te deja más pesos "
+       "para un mismo pago en dólares.</div>")
 
-    col_form, col_result = st.columns([1, 1], gap="large")
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        valor_usd = st.slider("Monto del cliente (USD)", 50, 10_000, 1_000, 50,
+                              key="cmp_usd")
+    with col2:
+        trm = st.number_input("TRM USD/COP", 2_000.0, 8_000.0,
+                              float(trm_info["trm"]), 10.0, key="cmp_trm")
 
-    with col_form:
-        st.markdown("### Parametros de la factura")
+    tramo = st.selectbox("Historial Upwork", list(UPWORK_TRAMOS),
+                         format_func=lambda x: UPWORK_TRAMOS[x], key="cmp_up")
 
-        tipo_key = st.selectbox(
-            "Tipo de servicio",
-            options=list(TIPOS_SERVICIO.keys()),
-            format_func=lambda k: f"{TIPOS_SERVICIO[k]['icono']} {TIPOS_SERVICIO[k]['label']}",
+    comp = comparar_plataformas(valor_usd, trm, tramo)
+    mejor, peor = comp[0], comp[-1]
+    ahorro = mejor["valor_cop"] - peor["valor_cop"]
+
+    md(seccion("Mejor opción", ""))
+    md(fila_cards([
+        card("Ganadora", mejor["plataforma"],
+             badge("recomendada", COLORS["green"]), COLORS["green"]),
+        card("Recibes", ui.fmt_cop(mejor["valor_cop"]),
+             f"costo {mejor['costo_total_pct']:.1f}%", COLORS["green"]),
+        card("Ahorro vs. peor", ui.fmt_cop(ahorro),
+             f"frente a {peor['plataforma']}", COLORS["gold"]),
+    ]))
+
+    # Gráfico Plotly de barras horizontales
+    md(seccion("Neto por plataforma", f"Para US$ {valor_usd:,} a TRM {ui.fmt_cop(trm)}"))
+    fig = ui.plotly_barras_h(
+        [r["plataforma"] for r in comp],
+        [r["valor_cop"] for r in comp],
+        color=COLORS["green"], fmt="$,.0f",
+    )
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+
+    # Tabla interactiva con barras de color (ProgressColumn)
+    md(seccion("Detalle", ""))
+    df = pd.DataFrame([{
+        "Plataforma": r["plataforma"],
+        "Neto COP": r["valor_cop"],
+        "Comisión USD": r["comision_usd"],
+        "Costo %": r["costo_total_pct"],
+        "TRM efectiva": r["trm_efectiva"],
+    } for r in comp])
+    st.dataframe(
+        df, width="stretch", hide_index=True,
+        column_config={
+            "Neto COP": st.column_config.ProgressColumn(
+                "Neto COP", format="$%d",
+                min_value=0, max_value=int(mejor["valor_cop"])),
+            "Comisión USD": st.column_config.NumberColumn(format="$%.2f"),
+            "Costo %": st.column_config.NumberColumn(format="%.2f%%"),
+            "TRM efectiva": st.column_config.NumberColumn(format="$%.2f"),
+        },
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PÁGINA · CALCULADORA INVERSA
+# ─────────────────────────────────────────────────────────────────────────────
+def pagina_calculadora(trm_info: dict):
+    md("<div style='font-size:26px;font-weight:700'>🧮 Calculadora inversa</div>")
+    md(f"<div style='color:{C['muted']};font-size:14px'>¿Cuánto debes cobrar para "
+       "recibir un neto objetivo, después de impuestos y comisiones?</div>")
+
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        neto_deseado = st.number_input("Neto que quieres recibir (COP)",
+                                       100_000, 500_000_000, 5_000_000, 100_000)
+        tipo = st.selectbox("Tipo de servicio", list(TIPOS_SERVICIO),
+                            format_func=lambda x: TIPOS_SERVICIO[x])
+    with col2:
+        es_declarante = st.toggle("Declaro renta", value=False)
+        incluir_aportes = st.toggle("Incluir aportes a salud y pensión", value=True)
+
+    usar_plat = st.toggle("Cobro por una plataforma internacional (USD)", value=False)
+    plat_id, trm = None, None
+    if usar_plat:
+        cpa, cpb = st.columns([1, 1])
+        with cpa:
+            plat_id = st.selectbox("Plataforma", [p["id"] for p in PLATAFORMAS],
+                                   format_func=lambda x: PLAT_NOMBRES[x],
+                                   key="inv_plat")
+        with cpb:
+            trm = st.number_input("TRM USD/COP", 2_000.0, 8_000.0,
+                                  float(trm_info["trm"]), 10.0, key="inv_trm")
+
+    r = calcular_bruto_necesario(
+        neto_deseado, tipo, es_declarante, incluir_aportes,
+        plataforma=plat_id, trm=trm,
+    )
+
+    md(seccion("Lo que debes facturar", ""))
+    tarjetas = [
+        card("Factura bruta (COP)", ui.fmt_cop(r["bruto_necesario"]),
+             badge("antes de descuentos", COLORS["blue"]), COLORS["blue"]),
+        card("Neto que recibirás", ui.fmt_cop(r["neto_real"]),
+             f"objetivo {ui.fmt_cop(r['neto_deseado'])}", COLORS["green"]),
+    ]
+    if r.get("tiene_plataforma"):
+        tarjetas.append(card(
+            "Cobra al cliente (USD)", ui.fmt_usd(r["bruto_usd_necesario"]),
+            badge(PLAT_NOMBRES.get(plat_id, ""), COLORS["gold"]), COLORS["gold"]))
+    md(fila_cards(tarjetas))
+
+    # Desglose del bruto al neto
+    bruto = r["bruto_necesario"]
+    dg = r["desglose"]
+    md(seccion("Cómo se reparte tu factura", ""))
+    md(barra_h("Factura bruta", bruto, bruto, COLORS["muted"], ui.fmt_cop(bruto)))
+    md(barra_h("Retención en la fuente", dg["valor_retenido"], bruto,
+               COLORS["red"], ui.fmt_cop(dg["valor_retenido"])))
+    if dg.get("total_aportes"):
+        md(barra_h("Aportes a seguridad social", dg["total_aportes"], bruto,
+                   COLORS["gold"], ui.fmt_cop(dg["total_aportes"])))
+    md(barra_h("Neto disponible", dg["neto"], bruto,
+               COLORS["green"], ui.fmt_cop(dg["neto"])))
+    st.caption("La retención es un anticipo del impuesto de renta: si declaras, "
+               "buena parte se cruza al presentar tu declaración.")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PÁGINA · PROYECCIÓN
+# ─────────────────────────────────────────────────────────────────────────────
+def pagina_proyeccion(trm_info: dict):
+    md("<div style='font-size:26px;font-weight:700'>📈 Proyección anual</div>")
+    md(f"<div style='color:{C['muted']};font-size:14px'>Tu ingreso real al año con "
+       "retención, aportes e impuesto de renta (Art. 241 ET).</div>")
+
+    modo = st.radio("Ingreso mensual en", ["COP", "USD (con plataforma)"],
+                    horizontal=True)
+    col1, col2 = st.columns([1, 1])
+
+    if modo == "COP":
+        with col1:
+            ingreso = st.number_input("Ingreso mensual (COP)",
+                                      500_000, 200_000_000, 6_000_000, 100_000)
+            tipo = st.selectbox("Tipo de servicio", list(TIPOS_SERVICIO),
+                               format_func=lambda x: TIPOS_SERVICIO[x], key="pry_tipo")
+        with col2:
+            es_declarante = st.toggle("Declaro renta", value=True, key="pry_decl")
+            meses = st.slider("Meses a proyectar", 1, 12, 12)
+        proy = proyeccion_anual(ingreso, tipo, es_declarante, meses=meses)
+        sub = f"{ui.fmt_cop(ingreso)} / mes · {meses} meses"
+    else:
+        with col1:
+            ingreso_usd = st.number_input("Ingreso mensual (USD)",
+                                          100, 100_000, 2_000, 100)
+            plat_id = st.selectbox("Plataforma de cobro",
+                                   [p["id"] for p in PLATAFORMAS],
+                                   format_func=lambda x: PLAT_NOMBRES[x], key="pry_plat")
+        with col2:
+            trm = st.number_input("TRM USD/COP", 2_000.0, 8_000.0,
+                                  float(trm_info["trm"]), 10.0, key="pry_trm")
+            es_declarante = st.toggle("Declaro renta", value=True, key="pry_decl2")
+            meses = st.slider("Meses a proyectar", 1, 12, 12, key="pry_meses")
+        proy = proyeccion_desde_usd(ingreso_usd, trm, plat_id,
+                                    es_declarante=es_declarante, meses=meses)
+        sub = (f"US$ {ingreso_usd:,} / mes · {PLAT_NOMBRES[plat_id]} · "
+               f"{meses} meses")
+
+    md(seccion("Resumen anual", sub))
+    md(fila_cards([
+        card("Ingreso bruto", ui.fmt_cop(proy["ingreso_bruto_anual"]),
+             f"{meses} meses", COLORS["blue"]),
+        card("Neto disponible", ui.fmt_cop(proy["neto_anual"]),
+             badge(f"{proy['neto_pct_bruto']:.0f}% del bruto", COLORS["green"]),
+             COLORS["green"]),
+        card("Impuesto de renta", ui.fmt_cop(proy["impuesto_renta_estimado"]),
+             f"tasa efectiva {proy['tasa_renta_efectiva_pct']:.1f}%", COLORS["red"]),
+        card("Aportes SS (año)", ui.fmt_cop(proy["total_aportes_anual"]),
+             "salud + pensión", COLORS["gold"]),
+    ]))
+
+    cga, cgb = st.columns([3, 2])
+    with cga:
+        # Área acumulada del neto mes a mes
+        meses_x = list(range(1, proy["meses_proyectados"] + 1))
+        neto_mes = proy["neto_mensual_promedio"]
+        acum = [neto_mes * m for m in meses_x]
+        fig = ui.plotly_area(
+            [f"Mes {m}" for m in meses_x], acum,
+            titulo="Neto disponible acumulado", color=COLORS["green"],
+            nombre="Acumulado",
         )
-        info_tipo = TIPOS_SERVICIO[tipo_key]
-        st.caption(f"📖 {info_tipo['descripcion']} · *{info_tipo['articulo']}*")
-        st.caption(f"Tarifa: **{info_tipo['tarifa_nd']}** (no declarante) / **{info_tipo['tarifa_d']}** (declarante)")
-
-        valor_factura = st.number_input(
-            "Valor bruto de la factura (COP)",
-            min_value=0,
-            max_value=500_000_000,
-            value=5_000_000,
-            step=100_000,
-            format="%d",
+        st.plotly_chart(fig, width="stretch",
+                        config={"displayModeBar": False})
+    with cgb:
+        # Composición del bruto
+        fig2 = ui.plotly_donut(
+            ["Neto disponible", "Aportes SS", "Impuesto renta"],
+            [proy["neto_anual"], proy["total_aportes_anual"],
+             proy["impuesto_renta_estimado"]],
+            titulo="Composición del bruto",
+            colores=[COLORS["green"], COLORS["gold"], COLORS["red"]],
         )
+        st.plotly_chart(fig2, width="stretch",
+                        config={"displayModeBar": False})
 
-        es_declarante = st.toggle(
-            "Soy declarante de renta",
-            value=False,
-            help=f"Eres declarante si tus ingresos anuales superan 1.400 UVT aprox. ${1_400 * UVT_ACTUAL:,.0f} en {ANO_ACTUAL}.",
-        )
+    st.caption("Estimado educativo. Para tu declaración real consulta un contador "
+               "o el formulario 210 de la DIAN.")
 
-        incluir_aportes = st.toggle(
-            "Incluir aportes a seguridad social",
-            value=True,
-            help="Salud (12.5%) y pension (16%) calculados sobre el 40% del ingreso bruto (IBC).",
-        )
 
-        with st.expander("🏙️ Agregar ReteICA (opcional)"):
-            incluir_ica = st.checkbox("Incluir ReteICA en el calculo", value=False)
-            municipio_sel = st.selectbox(
-                "Municipio",
-                options=list(MUNICIPIOS_ICA.keys()),
-                format_func=lambda k: MUNICIPIOS_ICA[k],
-                disabled=not incluir_ica,
-            )
-            actividad_sel = st.selectbox(
-                "Tipo de actividad",
-                ["servicios_profesionales", "servicios_generales", "comercio", "industria"],
-                disabled=not incluir_ica,
-            )
+# ─────────────────────────────────────────────────────────────────────────────
+# PÁGINA · FACTURA
+# ─────────────────────────────────────────────────────────────────────────────
+def pagina_factura():
+    md("<div style='font-size:26px;font-weight:700'>🧾 Generar factura PDF</div>")
+    md(f"<div style='color:{C['muted']};font-size:14px'>Completa los datos y "
+       "descarga un documento profesional listo para enviar.</div>")
 
-    with col_result:
-        st.markdown("### Resultado")
+    with st.form("form_factura"):
+        st.markdown("**Emisor (tú)**")
+        e1, e2 = st.columns(2)
+        nombre_f = e1.text_input("Nombre / razón social", "Ana García")
+        nit_f = e2.text_input("NIT o cédula", "52.123.456-7")
+        e3, e4 = st.columns(2)
+        ciudad = e3.text_input("Ciudad", "Bogotá")
+        email = e4.text_input("Email", "ana@ejemplo.co")
 
-        if valor_factura == 0:
-            st.info("Ingresa el valor de tu factura para ver el calculo.")
-        else:
-            resultado = calcular_neto(
-                valor_factura,
-                tipo_key,
-                es_declarante=es_declarante,
-                incluir_aportes=incluir_aportes,
-            )
-
-            ret = resultado["retencion"]
-            aportes = resultado["aportes"]
-            valor_retenido = resultado["valor_retenido"]
-
-            ica_resultado = None
-            valor_ica = 0
-            if incluir_ica:
-                try:
-                    ica_resultado = calcular_ica(valor_factura, municipio_sel, actividad_sel)
-                    valor_ica = ica_resultado["valor_ica"]
-                except Exception:
-                    pass
-
-            neto_final = resultado["neto"] - valor_ica
-            neto_pct = round(neto_final / valor_factura * 100, 1)
-
-            base_min_uvt = ret.get("base_minima_uvt", 0)
-            umbral_pesos = base_min_uvt * UVT_ACTUAL
-            if umbral_pesos > 0 and valor_factura < umbral_pesos:
-                st.warning(
-                    f"El valor facturado (${valor_factura:,.0f}) es menor al umbral minimo para retencion "
-                    f"({base_min_uvt} UVT = ${umbral_pesos:,.0f}). No aplica retencion en la fuente."
-                )
-
-            st.markdown(f"""
-<div class="neto-card">
-<p class="neto-label">Neto a recibir</p>
-<p class="neto-valor">${neto_final:,.0f}</p>
-<p class="neto-pct">El <strong>{neto_pct}%</strong> de tu factura</p>
-</div>
-            """, unsafe_allow_html=True)
-            st.markdown("")
-
-            filas = [
-                ("💵 Valor bruto facturado", f"${valor_factura:,.0f}", ""),
-                (f"🏛️ Retencion en la fuente ({ret['tarifa_pct']})", f"-${valor_retenido:,.0f}", "Tu cliente lo paga a la DIAN"),
-            ]
-            if ica_resultado:
-                filas.append((f"🏙️ ReteICA ({ica_resultado['tarifa_por_mil']}‰)", f"-${valor_ica:,.0f}", f"ICA {MUNICIPIOS_ICA.get(municipio_sel, municipio_sel)}"))
-            if incluir_aportes and aportes:
-                filas.append((f"🏥 Salud (12.5% x IBC ${aportes['ibc']:,.0f})", f"-${aportes['aporte_salud']:,.0f}", "Cotizacion como independiente"))
-                filas.append((f"🏦 Pension (16% x IBC)", f"-${aportes['aporte_pension']:,.0f}", "Cotizacion como independiente"))
-            filas.append(("✅ Neto final", f"${neto_final:,.0f}", ""))
-
-            df = pd.DataFrame(filas, columns=["Concepto", "Monto (COP)", "Nota"])
-            st.dataframe(df, hide_index=True, use_container_width=True)
-
-            with st.expander("❓ Por que me descuentan retencion en la fuente?"):
-                st.markdown(f"""
-La retencion en la fuente es un **anticipo del impuesto de renta**. Tu cliente lo recauda y lo
-entrega a la DIAN en tu nombre. **No es un impuesto adicional** — cuando declares renta, ese valor
-genera un saldo a favor o reduce lo que debes pagar.
-
-- Tarifa aplicada: **{ret['tarifa_pct']}** ({'declarante' if es_declarante else 'no declarante de renta'})
-- Base legal: {info_tipo['articulo']}
-                """)
-
-            if incluir_aportes and aportes:
-                with st.expander("❓ Como se calculan los aportes a salud y pension?"):
-                    st.markdown(f"""
-Como independiente pagas salud y pension **por tu cuenta**:
-
-- **IBC** = 40% del ingreso bruto = ${aportes['ibc']:,.0f}
-- **Salud**: 12.5% del IBC = ${aportes['aporte_salud']:,.0f}
-- **Pension**: 16% del IBC = ${aportes['aporte_pension']:,.0f}
-- **IBC minimo**: 1 SMMLV = ${SMMLV_2024:,}
-
-Base legal: Art. 18 Ley 100/1993, Decreto 1601/2022.
-                    """)
-
-    # Cuenta de cobro
-    st.divider()
-    st.markdown("### 📄 Generar cuenta de cobro")
-
-    with st.expander("Completar datos del documento", expanded=False):
+        st.markdown("**Cliente**")
         c1, c2 = st.columns(2)
-        with c1:
-            st.markdown("**Tus datos**")
-            nombre = st.text_input("Nombre completo *", placeholder="Laura Gomez Rios")
-            cedula = st.text_input("Cedula *", placeholder="52.123.456")
-            ciudad_doc = st.text_input("Ciudad", value="Bogota")
-            banco = st.text_input("Banco", placeholder="Bancolombia")
-            cuenta_banco = st.text_input("Numero de cuenta", placeholder="123-456789-00")
-            tipo_cta = st.selectbox("Tipo de cuenta", ["Ahorros", "Corriente"])
-        with c2:
-            st.markdown("**Datos del cliente**")
-            empresa = st.text_input("Empresa / Razon social *", placeholder="Cliente S.A.S.")
-            nit_cli = st.text_input("NIT del cliente *", placeholder="900.123.456-7")
-            contacto = st.text_input("Nombre del contacto", placeholder="Maria Torres")
-            descripcion_srv = st.text_area(
-                "Descripcion del servicio *",
-                placeholder="Consultoria en diseno de interfaz — Sprint 4",
-                height=80,
-            )
-            numero_doc = st.text_input("Numero de documento", placeholder="CC-2025-001")
+        nombre_c = c1.text_input("Nombre del cliente", "Tech Corp SAS")
+        nit_c = c2.text_input("NIT del cliente", "900.123.456-7")
 
-        if st.button("Generar documento", type="primary"):
-            faltantes = [f for f, v in [("Nombre", nombre), ("Cedula", cedula), ("Empresa", empresa), ("NIT", nit_cli), ("Descripcion", descripcion_srv)] if not v]
-            if faltantes:
-                st.warning(f"Completa los campos: {', '.join(faltantes)}")
-            else:
-                v_calc = valor_factura if valor_factura else 0
-                freelancer_data = {"nombre": nombre, "cedula": cedula, "ciudad": ciudad_doc or "Colombia"}
-                if banco: freelancer_data["banco"] = banco
-                if cuenta_banco:
-                    freelancer_data["cuenta"] = cuenta_banco
-                    freelancer_data["tipo_cuenta"] = tipo_cta
-                cliente_data = {"empresa": empresa, "nit": nit_cli}
-                if contacto: cliente_data["contacto"] = contacto
-                txt_doc = generar_documento_txt(
-                    datos_freelancer=freelancer_data, datos_cliente=cliente_data,
-                    valor=v_calc, descripcion=descripcion_srv, numero=numero_doc or None, incluir_retencion=True,
-                )
-                st.success("Documento generado")
-                nombre_base = nombre.split()[0].lower() if nombre else "freelancer"
-                st.download_button("⬇️ Descargar (.txt)", txt_doc.encode("utf-8"), f"cuenta_cobro_{nombre_base}.txt", "text/plain")
-                try:
-                    from factura_co.documento_pdf import generar_pdf
-                    ret_calc = calcular_neto(v_calc, tipo_key, es_declarante, incluir_aportes)
-                    r = ret_calc["retencion"]; a = ret_calc["aportes"] or {}
-                    pdf_bytes = generar_pdf(
-                        datos_freelancer=freelancer_data, datos_cliente=cliente_data,
-                        valor=v_calc, descripcion=descripcion_srv, numero=numero_doc or None,
-                        incluir_retencion=True, tarifa_retencion=r["tarifa"],
-                        incluir_ica=bool(ica_resultado), valor_ica=valor_ica,
-                        incluir_aportes=(incluir_aportes and bool(a)),
-                        aporte_salud=a.get("aporte_salud", 0), aporte_pension=a.get("aporte_pension", 0),
-                    )
-                    st.download_button("⬇️ Descargar (.pdf)", pdf_bytes, f"cuenta_cobro_{nombre_base}.pdf", "application/pdf")
-                except Exception:
-                    pass
+        st.markdown("**Servicio**")
+        descripcion = st.text_area("Descripción del servicio",
+                                   "Desarrollo de API de pagos — Sprint 3")
+        s1, s2 = st.columns(2)
+        valor = s1.number_input("Valor (COP)", 0, 1_000_000_000, 5_000_000, 50_000)
+        retencion = s2.number_input("Retención en la fuente (%)", 0.0, 20.0, 11.0, 0.5)
 
+        st.markdown("**Documento**")
+        d1, d2 = st.columns(2)
+        numero = d1.text_input("N.º de factura", "FV-2026-001")
+        fecha = d2.date_input("Fecha", date.today())
 
-# CALCULADORA INVERSA
-elif pagina == "🔄 Cuanto cobrar?":
-    st.markdown("## 🔄 Cuanto debo cobrar para recibir lo que necesito?")
-    st.markdown("Ingresa cuanto quieres recibir **neto** y la calculadora te dice cuanto debes facturar en **bruto**.")
+        with st.expander("Datos de pago (opcional)"):
+            p1, p2, p3 = st.columns(3)
+            banco = p1.text_input("Banco", "")
+            cuenta = p2.text_input("N.º de cuenta", "")
+            tipo_cuenta = p3.selectbox("Tipo", ["Ahorros", "Corriente"])
+            notas = st.text_input("Notas al pie", "Pago a 15 días.")
 
-    col_inv, col_inv_r = st.columns([1, 1], gap="large")
+        generar = st.form_submit_button("📄 Generar factura PDF")
 
-    with col_inv:
-        neto_deseado = st.number_input(
-            "Cuanto quieres recibir? (COP neto)",
-            min_value=0, max_value=200_000_000, value=4_000_000, step=100_000, format="%d",
-        )
-        tipo_inv = st.selectbox(
-            "Tipo de servicio",
-            options=list(TIPOS_SERVICIO.keys()),
-            format_func=lambda k: f"{TIPOS_SERVICIO[k]['icono']} {TIPOS_SERVICIO[k]['label']}",
-            key="inv_tipo",
-        )
-        declarante_inv = st.toggle("Soy declarante de renta", key="inv_declarante")
-        aportes_inv = st.toggle("Incluir aportes a seguridad social", value=True, key="inv_aportes")
-        st.info("Esta calculadora usa busqueda iterativa para encontrar el bruto exacto.")
+    # Vista previa del desglose (siempre que haya datos mínimos)
+    if valor > 0 and descripcion.strip():
+        try:
+            datos_prev = {
+                "nombre_freelancer": nombre_f or "—", "nit_freelancer": nit_f or "—",
+                "nombre_cliente": nombre_c or "—", "nit_cliente": nit_c or "—",
+                "descripcion_servicio": descripcion, "valor_cop": valor,
+                "retencion_pct": retencion,
+            }
+            dg = _desglose_factura(datos_prev)
+            md(seccion("Vista previa", f"Factura {dg['numero']} · {dg['fecha_str']}"))
+            md(fila_cards([
+                card("Subtotal", ui.fmt_cop(dg["subtotal"]), "", COLORS["blue"]),
+                card("Retención", "- " + ui.fmt_cop(dg["retencion_valor"]),
+                     f"{dg['retencion_pct']*100:.0f}%", COLORS["red"]),
+                card("Total a pagar", ui.fmt_cop(dg["total"]),
+                     badge("neto cliente", COLORS["green"]), COLORS["green"]),
+            ]))
+        except ValueError as exc:
+            st.warning(str(exc))
 
-    with col_inv_r:
-        if neto_deseado > 0:
-            # Busqueda iterativa
-            bruto_est = float(neto_deseado)
-            for _ in range(60):
-                r_temp = calcular_neto(bruto_est, tipo_inv, declarante_inv, aportes_inv)
-                diferencia = neto_deseado - r_temp["neto"]
-                if abs(diferencia) < 500:
-                    break
-                bruto_est += diferencia * 1.2
-
-            bruto_final = round(bruto_est / 1000) * 1000
-            resultado_inv = calcular_neto(bruto_final, tipo_inv, declarante_inv, aportes_inv)
-            neto_obtenido = resultado_inv["neto"]
-            ret_inv = resultado_inv["retencion"]
-            apo_inv = resultado_inv["aportes"]
-
-            st.markdown(f"""
-<div class="neto-card">
-<p class="neto-label">Debes facturar (bruto)</p>
-<p class="neto-valor">${bruto_final:,.0f}</p>
-<p class="neto-pct">Para recibir aprox. <strong>${neto_obtenido:,.0f}</strong> neto</p>
-</div>
-            """, unsafe_allow_html=True)
-            st.markdown("")
-
-            col_r1, col_r2 = st.columns(2)
-            with col_r1:
-                st.metric("Bruto a facturar", f"${bruto_final:,.0f}")
-                st.metric("Retencion", f"-${resultado_inv['valor_retenido']:,.0f}", delta=f"-{ret_inv['tarifa_pct']}", delta_color="inverse")
-            with col_r2:
-                if aportes_inv and apo_inv:
-                    st.metric("Aportes SS", f"-${apo_inv['aporte_salud'] + apo_inv['aporte_pension']:,.0f}", delta_color="inverse")
-                st.metric("Neto estimado", f"${neto_obtenido:,.0f}")
-
-            filas_inv = [
-                ("💵 Valor a facturar (bruto)", f"${bruto_final:,.0f}"),
-                (f"🏛️ Retencion ({ret_inv['tarifa_pct']})", f"-${resultado_inv['valor_retenido']:,.0f}"),
-            ]
-            if aportes_inv and apo_inv:
-                filas_inv.append(("🏥 Salud (12.5% IBC)", f"-${apo_inv['aporte_salud']:,.0f}"))
-                filas_inv.append(("🏦 Pension (16% IBC)", f"-${apo_inv['aporte_pension']:,.0f}"))
-            filas_inv.append(("✅ Neto estimado", f"${neto_obtenido:,.0f}"))
-            st.dataframe(pd.DataFrame(filas_inv, columns=["Concepto", "Monto"]), hide_index=True, use_container_width=True)
-        else:
-            st.info("Ingresa el neto que quieres recibir.")
-
-
-# CASOS DE USO
-elif pagina == "💡 Casos de uso":
-    st.markdown("## 💡 Casos de uso reales")
-    st.markdown("Escenarios concretos para que puedas comparar con tu situacion.")
-
-    CASOS = [
-        {
-            "titulo": "Desarrollador web — Honorarios $5.000.000",
-            "emoji": "💻",
-            "descripcion": "Juan es desarrollador freelance. Su cliente empresa le paga $5.000.000 por el desarrollo de un modulo. Juan no es declarante de renta.",
-            "valor": 5_000_000,
-            "tipo": "honorarios",
-            "declarante": False,
-            "aportes": True,
-            "contexto": "El caso mas comun para profesionales tech independientes. La tarifa del 11% aplica sobre el total.",
-        },
-        {
-            "titulo": "Disenadora — Servicios $1.800.000 (debajo del umbral)",
-            "emoji": "🎨",
-            "descripcion": "Laura es disenadora grafica. Factura $1.800.000 por servicios de diseno. Quiere saber si aplica retencion.",
-            "valor": 1_800_000,
-            "tipo": "servicios",
-            "declarante": False,
-            "aportes": True,
-            "contexto": "Para 'servicios' aplica un umbral minimo de 4 UVT. Verifica si este valor supera el umbral.",
-        },
-        {
-            "titulo": "Abogado — Honorarios $15.000.000 (declarante)",
-            "emoji": "⚖️",
-            "descripcion": "Carlos es abogado con ingresos anuales que superan $70 millones. Factura $15.000.000 por honorarios. Es declarante de renta.",
-            "valor": 15_000_000,
-            "tipo": "honorarios",
-            "declarante": True,
-            "aportes": True,
-            "contexto": "Al ser declarante, la tarifa baja de 11% a 10%. En altos valores, esta diferencia es significativa.",
-        },
-        {
-            "titulo": "Consultor — $8.000.000 con ReteICA Bogota",
-            "emoji": "📊",
-            "descripcion": "Valentina es consultora de negocios en Bogota. Factura $8.000.000 a una empresa bogotana.",
-            "valor": 8_000_000,
-            "tipo": "honorarios",
-            "declarante": False,
-            "aportes": True,
-            "contexto": "En Bogota los servicios profesionales tienen ReteICA de 9.66‰. Se suma al impacto total.",
-            "ica": {"municipio": "bogota", "actividad": "servicios_profesionales"},
-        },
-    ]
-
-    for caso in CASOS:
-        with st.expander(f"{caso['emoji']} {caso['titulo']}", expanded=False):
-            col_d, col_r = st.columns([1, 1])
-            with col_d:
-                st.markdown(f"**Situacion:** {caso['descripcion']}")
-                st.markdown(f"*{caso['contexto']}*")
-                st.markdown(f"- **Valor:** ${caso['valor']:,.0f}\n- **Tipo:** {TIPOS_SERVICIO[caso['tipo']]['label']}\n- **Declarante:** {'Si' if caso['declarante'] else 'No'}")
-
-            with col_r:
-                res = calcular_neto(caso["valor"], caso["tipo"], caso["declarante"], caso["aportes"])
-                ret_c = res["retencion"]
-                apo_c = res["aportes"]
-                valor_ica_c = 0
-                ica_c = None
-                if "ica" in caso:
-                    try:
-                        ica_c = calcular_ica(caso["valor"], caso["ica"]["municipio"], caso["ica"]["actividad"])
-                        valor_ica_c = ica_c["valor_ica"]
-                    except Exception:
-                        pass
-
-                neto_c = res["neto"] - valor_ica_c
-                pct_c = round(neto_c / caso["valor"] * 100, 1)
-
-                umbral_uvt = ret_c.get("base_minima_uvt", 0)
-                umbral_pesos = umbral_uvt * UVT_ACTUAL
-                if umbral_pesos > 0 and caso["valor"] < umbral_pesos:
-                    st.warning(f"El valor no supera el umbral minimo ({umbral_uvt} UVT = ${umbral_pesos:,.0f}). No aplica retencion.")
-
-                st.metric("Bruto facturado", f"${caso['valor']:,.0f}")
-                st.metric("Retencion en la fuente", f"-${res['valor_retenido']:,.0f}", delta=f"{ret_c['tarifa_pct']}", delta_color="inverse")
-                if ica_c:
-                    st.metric(f"ReteICA ({ica_c['tarifa_por_mil']}‰)", f"-${valor_ica_c:,.0f}", delta_color="inverse")
-                if caso["aportes"] and apo_c:
-                    st.metric("Aportes SS", f"-${apo_c['aporte_salud'] + apo_c['aporte_pension']:,.0f}", delta_color="inverse")
-                st.markdown(f"""
-<div class="neto-card">
-<p class="neto-label">Neto a recibir</p>
-<p class="neto-valor">${neto_c:,.0f}</p>
-<p class="neto-pct">El <strong>{pct_c}%</strong> del valor facturado</p>
-</div>
-                """, unsafe_allow_html=True)
-
-    st.divider()
-    st.markdown("### Tu caso es diferente?")
-    st.markdown("Usa la **Calculadora** en el menu lateral para ingresar tus propios numeros.")
-
-
-# APRENDE
-elif pagina == "📚 Aprende":
-    st.markdown("## 📚 Aprende: retenciones para independientes colombianos")
-    st.markdown("Todo lo que necesitas entender, explicado sin jerga tributaria innecesaria.")
-
-    with st.expander("🏛️ Que es la retencion en la fuente y quien la paga?", expanded=True):
-        st.markdown(f"""
-**La retencion en la fuente** es un mecanismo de recaudo anticipado del impuesto de renta.
-Cuando una empresa te paga, **descuenta un porcentaje y lo entrega a la DIAN en tu nombre**.
-
-Es un **anticipo del impuesto de renta**, no un impuesto adicional. Cuando declares renta, ese
-dinero ya retenido se descuenta de lo que debes pagar — o te lo devuelven si fue de mas.
-
-**Cuando NO aplica:**
-- Cuando el pagador es una persona natural sin obligacion de retener.
-- Cuando el valor esta por debajo del umbral minimo (segun tipo de servicio).
-- Cuando eres parte del regimen simple de tributacion.
-
-### Tarifas vigentes {ANO_ACTUAL} (UVT = ${UVT_ACTUAL:,})
-
-| Tipo de servicio | No declarante | Declarante | Umbral minimo |
-|---|---|---|---|
-| Honorarios (Art. 392) | **11%** | 10% | Sin umbral |
-| Servicios (Art. 392) | **6%** | 4% | 4 UVT = ${4 * UVT_ACTUAL:,} |
-| Arrendamiento (Art. 401) | **3.5%** | 3.5% | Sin umbral |
-| Compras (Art. 401) | **2.5%** | 2.5% | 27 UVT = ${27 * UVT_ACTUAL:,} |
-| Transporte (Art. 401) | **3.5%** | 3.5% | 4 UVT = ${4 * UVT_ACTUAL:,} |
-
-*Fuente: Estatuto Tributario, Art. 392-401. Decreto 2231 de 2023.*
-        """)
-
-    with st.expander("🏥 IBC: que es y como se calcula?"):
-        st.markdown(f"""
-**IBC (Ingreso Base de Cotizacion)** es el valor sobre el que calculas y pagas salud y pension.
-
-### La regla del 40%
-Como independiente, tu IBC es el **40% de tu ingreso bruto**.
-Si facturas $5.000.000, tu IBC es $2.000.000.
-
-El 60% restante se considera costos y gastos de tu actividad.
-
-### Cuanto pago?
-| Concepto | Tarifa | Sobre el IBC (si facturas $5M) |
-|---|---|---|
-| Salud | 12.5% | ${int(0.125 * 0.4 * 5_000_000):,} |
-| Pension | 16% | ${int(0.16 * 0.4 * 5_000_000):,} |
-| **Total SS** | **28.5%** | **${int(0.285 * 0.4 * 5_000_000):,}** |
-
-- Minimo: 1 SMMLV = **${SMMLV_2024:,}**
-- Maximo: 25 SMMLV = ${25 * SMMLV_2024:,}
-
-*Fuente: Art. 18 Ley 100/1993, Decreto 1601 de 2022.*
-        """)
-
-    with st.expander("💼 Diferencia entre honorarios, servicios y arrendamiento"):
-        col_t1, col_t2, col_t3 = st.columns(3)
-        with col_t1:
-            st.markdown("**Honorarios**\n\nPrestacion de servicios basada en conocimiento profesional: consultoria, diseno, desarrollo, asesoria legal, medicina.\n\nTarifa alta: **11% / 10%**. Sin umbral minimo.")
-        with col_t2:
-            st.markdown(f"**Servicios**\n\nMantenimiento, instalacion, reparacion, limpieza. No requieren titulo profesional.\n\nTarifa media: **6% / 4%**. Umbral: 4 UVT = ${4 * UVT_ACTUAL:,}")
-        with col_t3:
-            st.markdown("**Arrendamiento**\n\nAlquiler de inmuebles o bienes muebles.\n\nTarifa fija: **3.5%** (igual para declarantes y no declarantes). Sin umbral minimo.")
-
-    with st.expander("📋 Cuando soy declarante de renta?"):
-        st.markdown(f"""
-Eres obligado a declarar renta en {ANO_ACTUAL} si cumples alguna de estas condiciones:
-
-1. Ingresos brutos >= 1.400 UVT aprox. **${1_400 * UVT_ACTUAL:,.0f}**
-2. Patrimonio >= 4.500 UVT aprox. ${4_500 * UVT_ACTUAL:,.0f}
-3. Compras con tarjeta >= 1.400 UVT
-4. Consignaciones >= 1.400 UVT
-
-**Vale la pena declarar si no estoy obligado?** Si te retuvieron dinero, si. Al declarar puedes pedir la devolucion del saldo a favor.
-
-*Fuente: Art. 592-594 E.T.*
-        """)
-
-    with st.expander("📖 Glosario de terminos"):
-        glosario = {
-            "UVT": f"Unidad de Valor Tributario. Unidad de medida tributaria que se actualiza con la inflacion. En {ANO_ACTUAL} vale ${UVT_ACTUAL:,}. Fijada anualmente por la DIAN.",
-            "SMMLV": f"Salario Minimo Mensual Legal Vigente. En 2024 fue ${SMMLV_2024:,}. Base minima para cotizacion a seguridad social.",
-            "IBC": "Ingreso Base de Cotizacion. El valor sobre el que calculas salud y pension. Para independientes es el 40% del ingreso bruto.",
-            "Retencion en la fuente": "Anticipo del impuesto de renta que tu cliente recauda y entrega a la DIAN por ti.",
-            "Agente retenedor": "La empresa o persona que te paga y tiene la obligacion de descontar y pagar la retencion.",
-            "DIAN": "Direccion de Impuestos y Aduanas Nacionales. Entidad que administra los impuestos nacionales en Colombia.",
-            "ReteICA": "Retencion del Impuesto de Industria y Comercio. Lo cobra el municipio sobre actividades economicas en su territorio.",
-            "E.T.": "Estatuto Tributario. Norma principal que regula los impuestos nacionales (Decreto 624 de 1989 y modificaciones).",
-            "Declarante de renta": "Persona que supera los topes de ingresos o patrimonio y esta obligada a presentar declaracion de renta.",
+    if generar:
+        datos = {
+            "nombre_freelancer": nombre_f, "nit_freelancer": nit_f,
+            "nombre_cliente": nombre_c, "nit_cliente": nit_c,
+            "descripcion_servicio": descripcion, "valor_cop": valor,
+            "retencion_pct": retencion, "numero_factura": numero,
+            "fecha": fecha, "ciudad": ciudad, "email": email,
+            "banco": banco, "cuenta": cuenta, "tipo_cuenta": tipo_cuenta,
+            "notas": notas,
         }
-        for term, defn in glosario.items():
-            st.markdown(f"**{term}**: {defn}")
-
-    with st.expander(f"📈 Historial UVT 2015-{ANO_ACTUAL}"):
-        uvt_tabla = [
-            {"Ano": str(a), "Valor UVT ($)": f"${v:,}", "Var. desde 2015": f"+{round((v / 28279 - 1) * 100, 1)}%"}
-            for a, v in sorted(UVT_HISTORY.items())
-        ]
-        st.dataframe(pd.DataFrame(uvt_tabla), hide_index=True)
-        st.caption("Fuente: Resoluciones DIAN anuales. Art. 868 Estatuto Tributario.")
-
-    st.divider()
-    st.caption("Contenido orientativo. Para decisiones fiscales, consulta un contador publico certificado.")
-
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# PÁGINA: PLATAFORMAS DE PAGO
-# ──────────────────────────────────────────────────────────────────────────────
-elif pagina == "💱 Plataformas de pago":
-    st.markdown("# 💱 Plataformas de pago internacional")
-    st.markdown("Compara cuánto recibes en COP según por dónde te pague el cliente.")
-
-    # TRM
-    trm_info = get_trm_info()
-    trm_default = trm_info["trm"]
-    fuente_trm = trm_info["fuente"]
-
-    col_trm, col_monto = st.columns(2)
-    with col_trm:
-        trm = st.number_input(
-            "TRM (COP por 1 USD)",
-            min_value=1000.0, max_value=10000.0,
-            value=float(round(trm_default)),
-            step=10.0,
-            help=f"Fuente: {fuente_trm}",
-        )
-    with col_monto:
-        valor_usd = st.number_input(
-            "Valor en USD que te pagan",
-            min_value=1.0, max_value=100000.0,
-            value=1000.0, step=50.0,
-        )
-
-    tipo_upwork = st.select_slider(
-        "Historial en Upwork",
-        options=["nuevo", "medio", "senior"],
-        value="nuevo",
-        help="nuevo: <$500 con ese cliente | medio: $500-$10k | senior: >$10k",
-    )
-
-    st.divider()
-
-    # Tabla comparación
-    resultados = comparar_plataformas(valor_usd, trm, tipo_upwork)
-    mejor = resultados[0]
-    peor = resultados[-1]
-
-    col_m, col_p, col_d = st.columns(3)
-    with col_m:
-        st.metric("✅ Mejor opción", mejor["plataforma"],
-                  f"${mejor['valor_cop']:,.0f} COP")
-    with col_p:
-        st.metric("❌ Peor opción", peor["plataforma"],
-                  f"${peor['valor_cop']:,.0f} COP")
-    with col_d:
-        diff = mejor["valor_cop"] - peor["valor_cop"]
-        st.metric("💰 Diferencia", f"${diff:,.0f} COP",
-                  f"{(diff/mejor['valor_cop']*100):.1f}% más con la mejor")
-
-    st.divider()
-
-    # Tabla detallada
-    tabla_data = []
-    for r in resultados:
-        tabla_data.append({
-            "#": r["posicion"],
-            "Plataforma": r["plataforma"],
-            "USD que llegan": f"${r['valor_usd_neto']:,.2f}",
-            "Comisión USD": f"-${r['comision_usd']:,.2f}",
-            "TRM efectiva": f"${r['trm_efectiva']:,.0f}",
-            "Recibes COP": f"${r['valor_cop']:,.0f}",
-            "Costo total %": f"{r['costo_total_pct']:.1f}%",
-        })
-
-    df_tabla = pd.DataFrame(tabla_data)
-    st.dataframe(df_tabla, hide_index=True, use_container_width=True)
-
-    # Notas de la plataforma seleccionada
-    nombres_plat = [r["plataforma"] for r in resultados]
-    plat_sel_nombre = st.selectbox("Ver detalles de:", nombres_plat)
-    plat_sel = next(r for r in resultados if r["plataforma"] == plat_sel_nombre)
-    if plat_sel["notas"]:
-        st.markdown("**Notas importantes:**")
-        for nota in plat_sel["notas"]:
-            st.markdown(f"- {nota}")
-
-    st.caption("Comisiones aproximadas basadas en tarifas publicadas 2025. Verifica antes de usar.")
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# PÁGINA: PROYECCIÓN ANUAL
-# ──────────────────────────────────────────────────────────────────────────────
-elif pagina == "📈 Proyeccion anual":
-    st.markdown("# 📈 Proyección anual de ingresos")
-    st.markdown("Cuánto queda realmente después de retenciones, aportes e impuesto de renta.")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        modo_moneda = st.radio("Moneda de ingreso", ["Pesos COP", "Dólares USD"])
-    with col2:
-        meses = st.slider("Meses a proyectar", 1, 12, 12)
-
-    if modo_moneda == "Pesos COP":
-        ingreso_mensual = st.number_input(
-            "Ingreso mensual bruto (COP)",
-            min_value=100_000, max_value=100_000_000,
-            value=5_000_000, step=500_000,
-            format="%d",
-        )
-
-        col_serv, col_dec = st.columns(2)
-        with col_serv:
-            tipo_str = st.selectbox(
-                "Tipo de servicio",
-                ["honorarios", "servicios", "arrendamiento", "compras"],
-                index=0,
+        try:
+            pdf_bytes = generar_factura(datos)
+            st.success("Factura generada correctamente.")
+            st.download_button(
+                "⬇️ Descargar PDF", data=pdf_bytes,
+                file_name=f"{numero or 'factura'}.pdf", mime="application/pdf",
             )
-        with col_dec:
-            es_declarante = st.checkbox("Soy declarante de renta", value=True)
+        except ValueError as exc:
+            st.error(f"No se pudo generar la factura: {exc}")
 
-        proy = proyeccion_anual(
-            ingreso_mensual, tipo_str, es_declarante, incluir_aportes=True, meses=meses
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NAVEGACIÓN
+# ─────────────────────────────────────────────────────────────────────────────
+def main():
+    with st.sidebar:
+        md(f"<div style='font-size:22px;font-weight:700;padding:4px 0 2px'>"
+           f"🧾 factura&#8209;co</div>"
+           f"<div style='color:{C['muted']};font-size:12px;margin-bottom:14px'>"
+           f"Finanzas freelancer · Colombia</div>")
+        pagina = st.radio(
+            "Navegación",
+            ["🏠 Inicio", "💱 Plataformas", "🔄 Comparador",
+             "🧮 Calculadora", "📈 Proyección", "🧾 Factura"],
+            label_visibility="collapsed",
         )
+        st.divider()
+        trm_info = trm_info_cached()
+        md(f"<div style='color:{C['muted']};font-size:11px'>TRM hoy</div>"
+           f"<div style='font-size:18px;font-weight:700;font-variant-numeric:"
+           f"tabular-nums'>{ui.fmt_cop(trm_info['trm'])}</div>"
+           f"<div style='color:{C['muted']};font-size:10px;margin-top:2px'>"
+           f"{trm_info['fuente']}</div>")
+        md(f"<div style='position:relative;margin-top:18px;color:{C['muted']};"
+           f"font-size:10px'>v{__version__}</div>")
 
-    else:  # USD
-        trm_info2 = get_trm_info()
-        col_usd, col_trm2 = st.columns(2)
-        with col_usd:
-            ingreso_usd = st.number_input(
-                "Ingreso mensual (USD)",
-                min_value=100.0, max_value=100000.0,
-                value=1000.0, step=100.0,
-            )
-        with col_trm2:
-            trm2 = st.number_input(
-                "TRM",
-                min_value=1000.0, max_value=10000.0,
-                value=float(round(trm_info2["trm"])),
-                step=10.0,
-            )
-
-        plataformas_lista = listar_plataformas()
-        plat_nombres = {p["nombre"]: p["id"] for p in plataformas_lista}
-        plat_sel2 = st.selectbox("Plataforma de cobro", list(plat_nombres.keys()))
-        plat_id2 = plat_nombres[plat_sel2]
-
-        tipo_str = st.selectbox("Tipo de servicio", ["honorarios", "servicios"], index=0)
-        es_declarante = st.checkbox("Soy declarante de renta", value=True)
-
-        proy = proyeccion_desde_usd(
-            ingreso_usd, trm2, plat_id2, tipo_str, es_declarante, meses
-        )
-
-    st.divider()
-
-    # Métricas principales
-    col_a, col_b, col_c = st.columns(3)
-    with col_a:
-        st.metric("Bruto anual", f"${proy['ingreso_bruto_anual']:,.0f}")
-    with col_b:
-        st.metric("Neto disponible anual", f"${proy['neto_anual']:,.0f}",
-                  f"{proy['neto_pct_bruto']:.1f}% del bruto")
-    with col_c:
-        st.metric("Promedio mensual real", f"${proy['neto_mensual_promedio']:,.0f}")
-
-    # Desglose
-    st.markdown("### Desglose de obligaciones")
-    desglose_data = [
-        {"Concepto": "Ingreso bruto anual", "Monto": f"${proy['ingreso_bruto_anual']:,.0f}", "Nota": ""},
-        {"Concepto": "(-) Aportes seguridad social", "Monto": f"-${proy['total_aportes_anual']:,.0f}", "Nota": "Salud + pensión"},
-        {"Concepto": "(-) Impuesto de renta estimado", "Monto": f"-${proy['impuesto_renta_estimado']:,.0f}", "Nota": f"Tasa efectiva: {proy['tasa_renta_efectiva_pct']:.1f}%"},
-        {"Concepto": "= NETO DISPONIBLE", "Monto": f"${proy['neto_anual']:,.0f}", "Nota": f"{proy['neto_pct_bruto']:.1f}% del bruto"},
-    ]
-    st.dataframe(pd.DataFrame(desglose_data), hide_index=True, use_container_width=True)
-
-    st.info(f"💡 **Ahorro mensual recomendado** para cubrir aportes y diferencia de renta: "
-            f"**${proy['ahorro_mensual_recomendado']:,.0f} COP/mes**")
-
-    st.caption("Estimado. Impuesto de renta simplificado (Art. 241 E.T.). "
-               "Consulte un contador para su declaración real.")
+    if pagina.endswith("Inicio"):
+        pagina_inicio(trm_info)
+    elif pagina.endswith("Plataformas"):
+        pagina_plataformas(trm_info)
+    elif pagina.endswith("Comparador"):
+        pagina_comparador(trm_info)
+    elif pagina.endswith("Calculadora"):
+        pagina_calculadora(trm_info)
+    elif pagina.endswith("Proyección"):
+        pagina_proyeccion(trm_info)
+    elif pagina.endswith("Factura"):
+        pagina_factura()
 
 
-# FOOTER
-st.divider()
-st.caption(
-    f"factura-co v{__version__} · UVT {ANO_ACTUAL}: ${UVT_ACTUAL:,} · "
-    "E.T. colombiano, Ley 1607/2012, Decreto 1601/2022 · "
-    "[Codigo fuente](https://github.com/Brausin/factura-co)"
-)
+if __name__ == "__main__":
+    main()
