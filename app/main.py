@@ -511,8 +511,6 @@ def pagina_factura():
         elif valor <= 0:
             st.error("El valor de la factura debe ser mayor a $0.")
         else:
-            nota_pago = " · ".join(p for p in (f"Forma de pago: {forma_pago}",
-                                               notas.strip()) if p.strip())
             datos = {
                 "nombre_freelancer": nombre_f, "nit_freelancer": nit_f,
                 "nombre_cliente": nombre_c, "nit_cliente": nit_c,
@@ -520,7 +518,8 @@ def pagina_factura():
                 "retencion_pct": retencion, "numero_factura": numero,
                 "fecha": fecha, "ciudad": ciudad, "email": email,
                 "telefono": telefono, "banco": banco, "cuenta": cuenta,
-                "tipo_cuenta": tipo_cuenta, "notas": nota_pago,
+                "tipo_cuenta": tipo_cuenta, "forma_de_pago": forma_pago,
+                "notas": notas.strip(),
             }
             try:
                 pdf_bytes = generar_factura(datos)
