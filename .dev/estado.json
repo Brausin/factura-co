@@ -1,21 +1,20 @@
 {
-  "fecha": "2026-06-09T03:14:00Z",
-  "ultimo_commit": "072a6aa",
+  "fecha": "2026-06-09T00:00:00Z",
+  "ultimo_commit": "9bc9b29",
   "modulos_completados": [
-    "README.md — versión de portafolio: header centrado, 5 badges shields.io, tabla de características, tabla de 9 plataformas con comisión real y 'mejor para', 5 ejemplos de uso verificados, árbol real y stack",
-    "app/main.py — mejoras UX: badge oficial/estimado de TRM en Inicio + línea 'US$1.000 = X COP', slider 'Simular TRM' (3.000-6.500) en Plataformas, columna 'vs mejor' en rojo en Comparador, desglose Bruto→Retención→Aportes→Neto en tabla HTML, nota Art. 241 ET/UVT 2024 en Proyección",
-    "app/main.py — Factura: campos teléfono y forma de pago, número sugerido FCO-AAAA-NNN con contador en session_state, validación de obligatorios con st.error, st.balloons al generar",
-    ".github/workflows/actualizar_trm.yml + scripts/actualizar_trm_data.py — Action diaria (cron 14:00 UTC L-V) que descarga la TRM de datos.gov.co con respaldo exchangerate-api y agrega fila idempotente a data/trm_historico.csv"
+    "app/main.py — página '📄 Cuenta de cobro' usando documento_pdf.generar_pdf: formulario dark con datos del prestador y cliente, retención y aportes opcionales (calcular_aportes), vista previa del neto, validación de obligatorios con st.error, st.balloons y st.download_button del PDF",
+    "factura_pdf.py — campo 'forma_de_pago' renderizado como línea dedicada dentro de 'Datos para el pago', separado de las notas; app/main.py pasa forma_de_pago como campo propio",
+    "tests — tests/test_app_cuenta_cobro.py (AppTest de la nueva página) y casos de forma_de_pago en test_factura_pdf.py"
   ],
   "ya_existian": [
-    "plataformas.py (9 plataformas), comparador.py, trm_live.py (3 fuentes + fallback), proyeccion.py (Art.241 ET), calculadora.py (calcular_bruto_necesario binary search), factura_pdf.py, app/ui.py (dark finance)"
+    "plataformas.py (9 plataformas), comparador.py, trm_live.py (3 fuentes + fallback), proyeccion.py (Art.241 ET), calculadora.py, factura_pdf.py, documento_pdf.py, app/ui.py (dark finance), Action TRM"
   ],
   "en_progreso": "",
-  "siguiente_paso": "Opcional: página de Cuenta de cobro en la app usando documento_pdf.generar_pdf; snapshot/golden test del PDF de factura; renderizar 'forma de pago' como campo propio en el PDF (hoy va dentro de notas).",
-  "tests_pasando": 145,
-  "notas_tecnicas": "Verificado con pytest (145) y streamlit.testing.v1.AppTest recorriendo las 6 páginas + submit y validación de factura (0 excepciones). Existe un editable install previo de factura_co apuntando a /tmp/brausin_work/fco; para verificar contra ESTE clon se usa PYTHONPATH=src. pandas 3.0.3 (df.style.map disponible). /tmp == C:/Users/juans/AppData/Local/Temp (Git Bash MINGW64).",
+  "siguiente_paso": "Snapshot/golden test del PDF de factura y de la cuenta de cobro; soportar varios ítems en la cuenta de cobro (hoy es un único valor); exportar el desglose a CSV.",
+  "tests_pasando": 151,
+  "notas_tecnicas": "pytest (PYTHONPATH=src) -> 151 passed, incluye AppTest de las 7 páginas. Existe un editable install previo de factura_co apuntando a /tmp/brausin_work/fco; para verificar contra ESTE clon se usa PYTHONPATH=src. /tmp == C:/Users/juans/AppData/Local/Temp (Git Bash MINGW64).",
   "pendiente_diseno": [
-    "Opcional: página Cuenta de cobro en la app usando documento_pdf.generar_pdf",
-    "Opcional: snapshot/golden test del PDF de factura"
+    "Snapshot/golden test del PDF de factura y cuenta de cobro",
+    "Cuenta de cobro con múltiples ítems"
   ]
 }
