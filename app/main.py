@@ -23,13 +23,14 @@ import streamlit as st
 import pandas as pd
 
 from factura_co import __version__
-from factura_co.aportes import SMMLV_2024
+from factura_co.aportes import SMMLV_2024, calcular_aportes
 from factura_co.calculadora import calcular_neto, calcular_bruto_necesario
 from factura_co.plataformas import calcular_neto_plataforma, listar_plataformas
 from factura_co.comparador import comparar_plataformas, mejor_plataforma
 from factura_co.proyeccion import proyeccion_anual, proyeccion_desde_usd
 from factura_co.trm_live import get_trm_info
 from factura_co.factura_pdf import generar_factura, _desglose_factura
+from factura_co.documento_pdf import generar_pdf as generar_cuenta_cobro
 
 import ui
 from ui import COLORS, card, fila_cards, barra_h, badge, seccion, md
@@ -536,6 +537,16 @@ def pagina_factura():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# PÁGINA · CUENTA DE COBRO
+# ─────────────────────────────────────────────────────────────────────────────
+def pagina_cuenta_cobro():
+    md("<div style='font-size:26px;font-weight:700'>📄 Cuenta de cobro</div>")
+    md(f"<div style='color:{C['muted']};font-size:14px'>El documento equivalente "
+       "para personas naturales no obligadas a facturar electrónicamente "
+       "(Resolución DIAN 000042 de 2020).</div>")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # NAVEGACIÓN
 # ─────────────────────────────────────────────────────────────────────────────
 def main():
@@ -547,7 +558,8 @@ def main():
         pagina = st.radio(
             "Navegación",
             ["🏠 Inicio", "💱 Plataformas", "🔄 Comparador",
-             "🧮 Calculadora", "📈 Proyección", "🧾 Factura"],
+             "🧮 Calculadora", "📈 Proyección", "🧾 Factura",
+             "📄 Cuenta de cobro"],
             label_visibility="collapsed",
         )
         st.divider()
@@ -572,6 +584,8 @@ def main():
         pagina_proyeccion(trm_info)
     elif pagina.endswith("Factura"):
         pagina_factura()
+    elif pagina.endswith("Cuenta de cobro"):
+        pagina_cuenta_cobro()
 
 
 if __name__ == "__main__":
