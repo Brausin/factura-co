@@ -1,0 +1,25 @@
+name: Actualizar TRM diario
+on:
+  schedule:
+    - cron: '0 14 * * 1-5'
+  workflow_dispatch:
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests pandas
+      - name: Actualizar TRM
+        run: python scripts/actualizar_trm_data.py
+      - name: Commit si hay cambios
+        run: |
+          git config user.name "Brausin"
+          git config user.email "juansvargasb@gmail.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "Actualiza TRM $(date +%Y-%m-%d)"
+          git push
