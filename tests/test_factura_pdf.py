@@ -143,12 +143,28 @@ def test_generar_factura_con_todos_los_opcionales():
         ciudad="Medellín",
         email="ana@ejemplo.co",
         telefono="300 123 4567",
+        forma_de_pago="Transferencia bancaria",
         banco="Bancolombia",
         cuenta="123-456789-00",
         tipo_cuenta="Ahorros",
         notas="Pago a 15 días. Precios no incluyen IVA.",
     ))
     assert pdf[:4] == b"%PDF"
+
+
+def test_forma_de_pago_genera_pdf_valido():
+    # forma_de_pago se renderiza aunque no haya banco ni notas.
+    pdf = generar_factura(_datos(forma_de_pago="Nequi"))
+    assert pdf[:4] == b"%PDF"
+    assert len(pdf) > 1000
+
+
+def test_forma_de_pago_independiente_de_notas():
+    # El medio de pago va en su propia línea, no concatenado en notas.
+    con_forma = generar_factura(_datos(forma_de_pago="Daviplata"))
+    con_notas = generar_factura(_datos(notas="Pago a 30 días."))
+    assert con_forma[:4] == b"%PDF"
+    assert con_notas[:4] == b"%PDF"
 
 
 def test_generar_factura_falla_sin_obligatorio():
