@@ -545,6 +545,80 @@ def pagina_cuenta_cobro():
        "para personas naturales no obligadas a facturar electrónicamente "
        "(Resolución DIAN 000042 de 2020).</div>")
 
+    with st.form("form_cuenta_cobro"):
+        st.markdown("**Cobrado por (tú)**")
+        f1, f2 = st.columns(2)
+        nombre_f = f1.text_input("Nombre completo", "Ana García", key="cc_nombre")
+        cedula_f = f2.text_input("Cédula", "52.123.456", key="cc_cedula")
+        f3, f4, f5 = st.columns(3)
+        ciudad_f = f3.text_input("Ciudad", "Bogotá", key="cc_ciudad")
+        email_f = f4.text_input("Email", "ana@ejemplo.co", key="cc_email")
+        telefono_f = f5.text_input("Teléfono", "", key="cc_tel")
+
+        st.markdown("**Cobrado a (cliente)**")
+        c1, c2 = st.columns(2)
+        empresa_c = c1.text_input("Razón social", "Tech Corp SAS", key="cc_empresa")
+        nit_c = c2.text_input("NIT", "900.123.456-7", key="cc_nit")
+        c3, c4 = st.columns(2)
+        contacto_c = c3.text_input("Contacto", "", key="cc_contacto")
+        ciudad_c = c4.text_input("Ciudad del cliente", "", key="cc_ciudad_cli")
+
+        st.markdown("**Servicio**")
+        descripcion = st.text_area("Descripción del servicio",
+                                   "Consultoría en transformación digital — junio",
+                                   key="cc_desc")
+        s1, s2 = st.columns(2)
+        valor = s1.number_input("Valor bruto (COP)", 0, 1_000_000_000,
+                                5_000_000, 50_000, key="cc_valor")
+        retencion_pct = s2.number_input("Retención en la fuente (%)", 0.0, 20.0,
+                                        11.0, 0.5, key="cc_ret")
+
+        st.markdown("**Documento**")
+        d1, d2 = st.columns(2)
+        num_sugerido = (f"CC-{date.today().year}-"
+                        f"{str(st.session_state.get('cc_count', 1)).zfill(3)}")
+        numero = d1.text_input("N.º de documento", num_sugerido, key="cc_num")
+        fecha = d2.date_input("Fecha", date.today(), key="cc_fecha")
+
+        incluir_retencion = st.toggle("Aplicar retención en la fuente",
+                                      value=True, key="cc_inc_ret")
+        incluir_aportes = st.toggle(
+            "Incluir aportes a salud y pensión (informativo)",
+            value=False, key="cc_inc_ap")
+
+        with st.expander("Datos bancarios (opcional)"):
+            b1, b2 = st.columns(2)
+            banco = b1.text_input("Banco", "", key="cc_banco")
+            tipo_cuenta = b2.selectbox("Tipo de cuenta", ["Ahorros", "Corriente"],
+                                       key="cc_tipo")
+            cuenta = st.text_input("N.º de cuenta", "", key="cc_cuenta")
+
+        generar = st.form_submit_button("📄 Generar cuenta de cobro")
+
+    # Vista previa del desglose (siempre que haya datos mínimos)
+    if valor > 0 and descripcion.strip():
+        tarifa = retencion_pct / 100.0
+        valor_retencion = round(valor * tarifa) if incluir_retencion else 0
+        neto = valor - valor_retencion
+        md(seccion("Vista previa", f"Documento {numero}"))
+        md(fila_cards([
+            card("Valor bruto", ui.fmt_cop(valor), "", COLORS["blue"]),
+            card("Retención", "- " + ui.fmt_cop(valor_retencion),
+                 f"{retencion_pct:.0f}%" if incluir_retencion else "no aplica",
+                 COLORS["red"]),
+            card("Neto a pagar", ui.fmt_cop(neto),
+                 badge("recibe el freelancer", COLORS["green"]), COLORS["green"]),
+        ]))
+        if incluir_aportes:
+            ap = calcular_aportes(valor)
+            md(seccion("Aportes a seguridad social", "A cargo del prestador (IBC 40%)"))
+            md(fila_cards([
+                card("Salud (12.5%)", ui.fmt_cop(ap["aporte_salud"]), "", COLORS["gold"]),
+                card("Pensión (16%)", ui.fmt_cop(ap["aporte_pension"]), "", COLORS["gold"]),
+                card("Total aportes", ui.fmt_cop(ap["total_aportes"]),
+                     badge("mensual", COLORS["gold"]), COLORS["gold"]),
+            ]))
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # NAVEGACIÓN
