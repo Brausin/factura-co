@@ -72,9 +72,14 @@ def trm_info_cached() -> dict:
 
 
 def trm_badge(info: dict) -> str:
+    """Pill de estado de la TRM: ámbar si es estimada, verde si es oficial."""
     if info["es_estimado"]:
-        return badge("estimada", COLORS["gold"])
-    return badge("en vivo", COLORS["green"])
+        return ("<span style='background:#7c4a00;color:#F5A623;"
+                "border:1px solid #F5A623;border-radius:20px;padding:2px 10px;"
+                "font-size:11px'>⚠️ Estimado</span>")
+    return ("<span style='background:#003c2a;color:#00C896;"
+            "border:1px solid #00C896;border-radius:20px;padding:2px 10px;"
+            "font-size:11px'>✅ Oficial · datos.gov.co</span>")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -99,6 +104,12 @@ def pagina_inicio(trm_info: dict):
         card("SMMLV en dólares", ui.fmt_usd(smmlv_usd),
              f"{ui.fmt_cop(SMMLV_2024)} / mes", COLORS["gold"]),
     ]))
+
+    md(f"<div style='background:{C['card']};border:1px solid {C['border']};"
+       f"border-radius:12px;padding:14px 18px;margin:10px 0;font-size:15px;"
+       f"display:flex;align-items:center;gap:10px;flex-wrap:wrap'>"
+       f"<span>Con la TRM de hoy → <b>US$1.000 = {ui.fmt_cop(trm * 1000)}</b></span>"
+       f"{trm_badge(trm_info)}</div>")
 
     # Top plataformas para una referencia de US$1.000
     comp = comparar_plataformas(1000, trm)
@@ -144,8 +155,10 @@ def pagina_plataformas(trm_info: dict):
         plat_id = st.selectbox("Plataforma", [p["id"] for p in PLATAFORMAS],
                                format_func=lambda x: PLAT_NOMBRES[x])
 
-    trm = st.number_input("TRM USD/COP", 2_000.0, 8_000.0,
-                          float(trm_info["trm"]), 10.0)
+    trm_def = min(max(int(round(trm_info["trm"])), 3_000), 6_500)
+    trm = float(st.slider("Simular TRM (escenario USD/COP)", 3_000, 6_500,
+                          trm_def, 50,
+                          help="Mueve la TRM para ver cómo cambia tu neto."))
 
     kwargs = {}
     if plat_id == "upwork":
@@ -225,20 +238,27 @@ def pagina_comparador(trm_info: dict):
     st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
     # Tabla interactiva con barras de color (ProgressColumn)
-    md(seccion("Detalle", ""))
+    md(seccion("Detalle", "«vs mejor» = cuánto pierdes frente a la ganadora"))
+    mejor_cop = mejor["valor_cop"]
     df = pd.DataFrame([{
         "Plataforma": r["plataforma"],
         "Neto COP": r["valor_cop"],
+        "vs mejor": r["valor_cop"] - mejor_cop,
         "Comisión USD": r["comision_usd"],
         "Costo %": r["costo_total_pct"],
         "TRM efectiva": r["trm_efectiva"],
     } for r in comp])
+    estilo = df.style.map(
+        lambda v: f"color:{COLORS['red']};font-weight:600" if v < 0 else "",
+        subset=["vs mejor"],
+    )
     st.dataframe(
-        df, width="stretch", hide_index=True,
+        estilo, width="stretch", hide_index=True,
         column_config={
             "Neto COP": st.column_config.ProgressColumn(
                 "Neto COP", format="$%d",
-                min_value=0, max_value=int(mejor["valor_cop"])),
+                min_value=0, max_value=int(mejor_cop)),
+            "vs mejor": st.column_config.NumberColumn("vs mejor", format="$%d"),
             "Comisión USD": st.column_config.NumberColumn(format="$%.2f"),
             "Costo %": st.column_config.NumberColumn(format="%.2f%%"),
             "TRM efectiva": st.column_config.NumberColumn(format="$%.2f"),
@@ -294,20 +314,32 @@ def pagina_calculadora(trm_info: dict):
             badge(PLAT_NOMBRES.get(plat_id, ""), COLORS["gold"]), COLORS["gold"]))
     md(fila_cards(tarjetas))
 
-    # Desglose del bruto al neto
+    # Desglose del bruto al neto, en una tabla HTML clara
     bruto = r["bruto_necesario"]
     dg = r["desglose"]
-    md(seccion("Cómo se reparte tu factura", ""))
-    md(barra_h("Factura bruta", bruto, bruto, COLORS["muted"], ui.fmt_cop(bruto)))
-    md(barra_h("Retención en la fuente", dg["valor_retenido"], bruto,
-               COLORS["red"], ui.fmt_cop(dg["valor_retenido"])))
+    filas = [
+        ("Factura bruta", ui.fmt_cop(bruto), C["text"], "600"),
+        ("− Retención en la fuente (anticipo de renta)",
+         "− " + ui.fmt_cop(dg["valor_retenido"]), C["red"], "500"),
+    ]
     if dg.get("total_aportes"):
-        md(barra_h("Aportes a seguridad social", dg["total_aportes"], bruto,
-                   COLORS["gold"], ui.fmt_cop(dg["total_aportes"])))
-    md(barra_h("Neto disponible", dg["neto"], bruto,
-               COLORS["green"], ui.fmt_cop(dg["neto"])))
-    st.caption("La retención es un anticipo del impuesto de renta: si declaras, "
-               "buena parte se cruza al presentar tu declaración.")
+        filas.append(("− Aportes a salud y pensión",
+                      "− " + ui.fmt_cop(dg["total_aportes"]), C["gold"], "500"))
+    filas.append(("= Neto que recibes", ui.fmt_cop(dg["neto"]), C["green"], "700"))
+
+    md(seccion("Cómo se reparte tu factura", "Del bruto facturado a tu bolsillo"))
+    cuerpo = "".join(
+        f"<tr style='border-bottom:1px solid {C['border']}'>"
+        f"<td style='padding:9px 14px;color:{C['muted']};font-size:13px'>{etq}</td>"
+        f"<td style='padding:9px 14px;text-align:right;color:{col};font-weight:{peso};"
+        f"font-variant-numeric:tabular-nums'>{val}</td></tr>"
+        for etq, val, col, peso in filas
+    )
+    md(f"<table style='width:100%;border-collapse:collapse;background:{C['card']};"
+       f"border:1px solid {C['border']};border-radius:10px;overflow:hidden'>"
+       f"{cuerpo}</table>")
+    st.caption("La retención en la fuente es un anticipo del impuesto de renta: "
+               "si declaras, se cruza al presentar tu declaración (Art. 365 ET).")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -388,8 +420,8 @@ def pagina_proyeccion(trm_info: dict):
         st.plotly_chart(fig2, width="stretch",
                         config={"displayModeBar": False})
 
-    st.caption("Estimado educativo. Para tu declaración real consulta un contador "
-               "o el formulario 210 de la DIAN.")
+    st.caption("📋 Basado en tabla Art. 241 ET, UVT 2024 = $47.065. "
+               "No constituye asesoría tributaria.")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -405,9 +437,10 @@ def pagina_factura():
         e1, e2 = st.columns(2)
         nombre_f = e1.text_input("Nombre / razón social", "Ana García")
         nit_f = e2.text_input("NIT o cédula", "52.123.456-7")
-        e3, e4 = st.columns(2)
+        e3, e4, e5 = st.columns(3)
         ciudad = e3.text_input("Ciudad", "Bogotá")
         email = e4.text_input("Email", "ana@ejemplo.co")
+        telefono = e5.text_input("Teléfono", "")
 
         st.markdown("**Cliente**")
         c1, c2 = st.columns(2)
@@ -423,15 +456,22 @@ def pagina_factura():
 
         st.markdown("**Documento**")
         d1, d2 = st.columns(2)
-        numero = d1.text_input("N.º de factura", "FV-2026-001")
+        num_sugerido = (f"FCO-{date.today().year}-"
+                        f"{str(st.session_state.get('factura_count', 1)).zfill(3)}")
+        numero = d1.text_input("N.º de factura", num_sugerido)
         fecha = d2.date_input("Fecha", date.today())
 
         with st.expander("Datos de pago (opcional)"):
-            p1, p2, p3 = st.columns(3)
-            banco = p1.text_input("Banco", "")
-            cuenta = p2.text_input("N.º de cuenta", "")
-            tipo_cuenta = p3.selectbox("Tipo", ["Ahorros", "Corriente"])
-            notas = st.text_input("Notas al pie", "Pago a 15 días.")
+            p1, p2 = st.columns(2)
+            forma_pago = p1.selectbox(
+                "Forma de pago",
+                ["Transferencia bancaria", "Nequi", "Daviplata", "Cripto",
+                 "Efectivo", "Otro"])
+            banco = p2.text_input("Banco", "")
+            p3, p4 = st.columns(2)
+            cuenta = p3.text_input("N.º de cuenta", "")
+            tipo_cuenta = p4.selectbox("Tipo de cuenta", ["Ahorros", "Corriente"])
+            notas = st.text_area("Notas al pie", "Pago a 15 días.")
 
         generar = st.form_submit_button("📄 Generar factura PDF")
 
@@ -457,24 +497,42 @@ def pagina_factura():
             st.warning(str(exc))
 
     if generar:
-        datos = {
-            "nombre_freelancer": nombre_f, "nit_freelancer": nit_f,
-            "nombre_cliente": nombre_c, "nit_cliente": nit_c,
-            "descripcion_servicio": descripcion, "valor_cop": valor,
-            "retencion_pct": retencion, "numero_factura": numero,
-            "fecha": fecha, "ciudad": ciudad, "email": email,
-            "banco": banco, "cuenta": cuenta, "tipo_cuenta": tipo_cuenta,
-            "notas": notas,
+        obligatorios = {
+            "Nombre / razón social": nombre_f,
+            "NIT o cédula": nit_f,
+            "Nombre del cliente": nombre_c,
+            "NIT del cliente": nit_c,
+            "Descripción del servicio": descripcion,
         }
-        try:
-            pdf_bytes = generar_factura(datos)
-            st.success("Factura generada correctamente.")
-            st.download_button(
-                "⬇️ Descargar PDF", data=pdf_bytes,
-                file_name=f"{numero or 'factura'}.pdf", mime="application/pdf",
-            )
-        except ValueError as exc:
-            st.error(f"No se pudo generar la factura: {exc}")
+        faltan = [campo for campo, val in obligatorios.items() if not str(val).strip()]
+        if faltan:
+            st.error("Faltan campos obligatorios: " + ", ".join(faltan))
+        elif valor <= 0:
+            st.error("El valor de la factura debe ser mayor a $0.")
+        else:
+            nota_pago = " · ".join(p for p in (f"Forma de pago: {forma_pago}",
+                                               notas.strip()) if p.strip())
+            datos = {
+                "nombre_freelancer": nombre_f, "nit_freelancer": nit_f,
+                "nombre_cliente": nombre_c, "nit_cliente": nit_c,
+                "descripcion_servicio": descripcion, "valor_cop": valor,
+                "retencion_pct": retencion, "numero_factura": numero,
+                "fecha": fecha, "ciudad": ciudad, "email": email,
+                "telefono": telefono, "banco": banco, "cuenta": cuenta,
+                "tipo_cuenta": tipo_cuenta, "notas": nota_pago,
+            }
+            try:
+                pdf_bytes = generar_factura(datos)
+                st.session_state["factura_count"] = (
+                    st.session_state.get("factura_count", 1) + 1)
+                st.success("Factura generada correctamente.")
+                st.balloons()
+                st.download_button(
+                    "⬇️ Descargar PDF", data=pdf_bytes,
+                    file_name=f"{numero or 'factura'}.pdf", mime="application/pdf",
+                )
+            except ValueError as exc:
+                st.error(f"No se pudo generar la factura: {exc}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
