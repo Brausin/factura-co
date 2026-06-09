@@ -1,21 +1,21 @@
 {
-  "fecha": "2026-06-08T04:47:18.385662Z",
-  "ultimo_commit": "bf76d55",
+  "fecha": "2026-06-09T03:14:00Z",
+  "ultimo_commit": "072a6aa",
   "modulos_completados": [
-    "factura_pdf.py — generar_factura(datos)->bytes con fpdf2 (API plana) + 24 tests",
-    "app/ui.py — sistema de diseno dark finance (paleta, CSS, card/barra_h/badge/seccion, Plotly barras/area/donut)",
-    "app/main.py — rediseno completo: 6 secciones (Inicio, Plataformas, Comparador, Calculadora, Proyeccion, Factura), Plotly, sin st.metric/bar_chart/matplotlib",
-    "examples/ejemplo_factura_pdf.py + README actualizado"
+    "README.md — versión de portafolio: header centrado, 5 badges shields.io, tabla de características, tabla de 9 plataformas con comisión real y 'mejor para', 5 ejemplos de uso verificados, árbol real y stack",
+    "app/main.py — mejoras UX: badge oficial/estimado de TRM en Inicio + línea 'US$1.000 = X COP', slider 'Simular TRM' (3.000-6.500) en Plataformas, columna 'vs mejor' en rojo en Comparador, desglose Bruto→Retención→Aportes→Neto en tabla HTML, nota Art. 241 ET/UVT 2024 en Proyección",
+    "app/main.py — Factura: campos teléfono y forma de pago, número sugerido FCO-AAAA-NNN con contador en session_state, validación de obligatorios con st.error, st.balloons al generar",
+    ".github/workflows/actualizar_trm.yml + scripts/actualizar_trm_data.py — Action diaria (cron 14:00 UTC L-V) que descarga la TRM de datos.gov.co con respaldo exchangerate-api y agrega fila idempotente a data/trm_historico.csv"
   ],
   "ya_existian": [
-    "plataformas.py (9 plataformas), comparador.py, trm_live.py (3 fuentes), proyeccion.py (Art.241 ET), calculadora.py (calcular_bruto_necesario binary search)"
+    "plataformas.py (9 plataformas), comparador.py, trm_live.py (3 fuentes + fallback), proyeccion.py (Art.241 ET), calculadora.py (calcular_bruto_necesario binary search), factura_pdf.py, app/ui.py (dark finance)"
   ],
   "en_progreso": "",
-  "siguiente_paso": "colombia-data-insights: convertir charts matplotlib->Plotly (item H), KPI ticker HTML (item I), GitHub Actions TRM/IPC (item J). En factura-co opcional: pagina de cuenta de cobro (documento_pdf) en la app y tests de snapshot del PDF.",
+  "siguiente_paso": "Opcional: página de Cuenta de cobro en la app usando documento_pdf.generar_pdf; snapshot/golden test del PDF de factura; renderizar 'forma de pago' como campo propio en el PDF (hoy va dentro de notas).",
   "tests_pasando": 145,
-  "notas_tecnicas": "App verificada con streamlit.testing.v1.AppTest recorriendo las 6 paginas + submit de factura (0 excepciones). Streamlit 1.58: migrado use_container_width->width='stretch'. fpdf2 con fuentes core latin-1 (normalize_text override). /tmp == C:/Users/juans/AppData/Local/Temp en este entorno (Git Bash MINGW64).",
+  "notas_tecnicas": "Verificado con pytest (145) y streamlit.testing.v1.AppTest recorriendo las 6 páginas + submit y validación de factura (0 excepciones). Existe un editable install previo de factura_co apuntando a /tmp/brausin_work/fco; para verificar contra ESTE clon se usa PYTHONPATH=src. pandas 3.0.3 (df.style.map disponible). /tmp == C:/Users/juans/AppData/Local/Temp (Git Bash MINGW64).",
   "pendiente_diseno": [
-    "Opcional: pagina Cuenta de cobro en la app usando documento_pdf.generar_pdf",
+    "Opcional: página Cuenta de cobro en la app usando documento_pdf.generar_pdf",
     "Opcional: snapshot/golden test del PDF de factura"
   ]
 }
