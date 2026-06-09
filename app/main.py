@@ -620,6 +620,21 @@ def pagina_cuenta_cobro():
             ]))
 
     if generar:
+        obligatorios = {
+            "Nombre completo": nombre_f,
+            "Cédula": cedula_f,
+            "Razón social": empresa_c,
+            "NIT": nit_c,
+            "Descripción del servicio": descripcion,
+        }
+        faltan = [campo for campo, val in obligatorios.items() if not str(val).strip()]
+        if faltan:
+            st.error("Faltan campos obligatorios: " + ", ".join(faltan))
+            return
+        if valor <= 0:
+            st.error("El valor de la cuenta de cobro debe ser mayor a $0.")
+            return
+
         datos_freelancer = {"nombre": nombre_f, "cedula": cedula_f}
         for clave, val in (("ciudad", ciudad_f), ("email", email_f),
                            ("telefono", telefono_f), ("banco", banco),
@@ -650,6 +665,8 @@ def pagina_cuenta_cobro():
             **kwargs,
         )
         st.session_state["cc_count"] = st.session_state.get("cc_count", 1) + 1
+        st.success("Cuenta de cobro generada correctamente.")
+        st.balloons()
         st.download_button(
             "⬇️ Descargar cuenta de cobro", data=pdf_bytes,
             file_name=f"{numero or 'cuenta_cobro'}.pdf", mime="application/pdf",
