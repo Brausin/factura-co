@@ -261,9 +261,12 @@ def generar_factura(datos: dict) -> bytes:
                   y ``valor_cop`` para el detalle.
                 - ``ciudad`` (str), ``email`` (str), ``telefono`` (str):
                   datos de contacto del emisor.
+                - ``forma_de_pago`` (str): medio de pago acordado
+                  (transferencia, Nequi, etc.). Se renderiza en una línea
+                  dedicada dentro de «Datos para el pago», no dentro de notas.
                 - ``banco`` (str), ``cuenta`` (str), ``tipo_cuenta`` (str):
                   instrucciones de pago.
-                - ``notas`` (str): texto libre al pie (forma de pago, vigencia).
+                - ``notas`` (str): texto libre al pie (vigencia, condiciones).
 
     Returns:
         bytes: contenido del PDF, listo para descargar o guardar.
@@ -427,13 +430,20 @@ def generar_factura(datos: dict) -> bytes:
                 color=_VERDE, negrita=True, fondo=(232, 246, 241))
 
     # ── DATOS DE PAGO / NOTAS ────────────────────────────────────────────────
-    if datos.get("banco") or datos.get("notas"):
+    if datos.get("forma_de_pago") or datos.get("banco") or datos.get("notas"):
         pdf.ln(8)
         pdf.set_font("Helvetica", "B", 8.5)
         pdf.set_text_color(*_VERDE)
         pdf.cell(0, 5, "DATOS PARA EL PAGO", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_text_color(*_NEGRO)
         pdf.set_font("Helvetica", "", 9)
+        # Forma de pago en su propia línea, separada de las notas al pie.
+        if datos.get("forma_de_pago"):
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.cell(30, 5.5, "Forma de pago:")
+            pdf.set_font("Helvetica", "", 9)
+            pdf.multi_cell(0, 5.5, str(datos["forma_de_pago"]),
+                           new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         if datos.get("banco"):
             tipo = datos.get("tipo_cuenta", "Ahorros")
             cuenta = datos.get("cuenta", "")
