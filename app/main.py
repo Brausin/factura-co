@@ -619,6 +619,42 @@ def pagina_cuenta_cobro():
                      badge("mensual", COLORS["gold"]), COLORS["gold"]),
             ]))
 
+    if generar:
+        datos_freelancer = {"nombre": nombre_f, "cedula": cedula_f}
+        for clave, val in (("ciudad", ciudad_f), ("email", email_f),
+                           ("telefono", telefono_f), ("banco", banco),
+                           ("tipo_cuenta", tipo_cuenta), ("cuenta", cuenta)):
+            if str(val).strip():
+                datos_freelancer[clave] = val
+        datos_cliente = {"empresa": empresa_c, "nit": nit_c}
+        for clave, val in (("contacto", contacto_c), ("ciudad", ciudad_c)):
+            if str(val).strip():
+                datos_cliente[clave] = val
+
+        kwargs = {}
+        if incluir_aportes:
+            ap = calcular_aportes(valor)
+            kwargs.update(incluir_aportes=True,
+                          aporte_salud=ap["aporte_salud"],
+                          aporte_pension=ap["aporte_pension"])
+
+        pdf_bytes = generar_cuenta_cobro(
+            datos_freelancer=datos_freelancer,
+            datos_cliente=datos_cliente,
+            valor=valor,
+            descripcion=descripcion,
+            numero=numero or None,
+            fecha=fecha,
+            incluir_retencion=incluir_retencion,
+            tarifa_retencion=retencion_pct / 100.0,
+            **kwargs,
+        )
+        st.session_state["cc_count"] = st.session_state.get("cc_count", 1) + 1
+        st.download_button(
+            "⬇️ Descargar cuenta de cobro", data=pdf_bytes,
+            file_name=f"{numero or 'cuenta_cobro'}.pdf", mime="application/pdf",
+        )
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # NAVEGACIÓN
