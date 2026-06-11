@@ -1,6 +1,6 @@
 {
   "fecha": "2026-06-10T00:00:00Z",
-  "ultimo_commit": "pendiente-push",
+  "ultimo_commit": "3f5b727",
   "modulos_completados": [
     "Rediseño total de PDFs (factura_pdf.py y documento_pdf.py) con identidad Glassmorphism fintech: banda slate #0F172A, pill dorado #F59E0B con el número, tarjetas Facturar a / Resumen (factura) y Cobrado por / Cobrado a (cuenta), tabla con cabecera oscura + zebra multilínea, caja de TOTAL/NETO en slate con cifra dorada, footer con barra bicolor violeta/oro y paginación; razones sociales largas se envuelven; separador de miles con punto; muestras revisadas visualmente (5 PDFs en muestras/, gitignored)",
     "Bugs corregidos: sliders restrictivos (USD step 50, TRM step 50) -> number_input step 1 con eco en vivo del valor con miles (eco_cop/eco_usd/eco_trm en main.py); steps COP 50k/100k -> 1.000; Factura y Cuenta de cobro sin st.form (vista previa realmente viva) con validación por campo junto al campo que falla; textos superpuestos: el contenido de expanders cerrados se pintaba encima del contenido inferior, corregido en ui.py (details:not([open]) display:none); badge de TRM ya no dice 'datos.gov.co' cuando la fuente es fallback",
