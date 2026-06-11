@@ -1,18 +1,18 @@
 {
-  "fecha": "2026-06-09T00:00:00Z",
-  "ultimo_commit": "9bc9b29",
+  "fecha": "2026-06-10T00:00:00Z",
+  "ultimo_commit": "906f726",
   "modulos_completados": [
-    "app/main.py — página '📄 Cuenta de cobro' usando documento_pdf.generar_pdf: formulario dark con datos del prestador y cliente, retención y aportes opcionales (calcular_aportes), vista previa del neto, validación de obligatorios con st.error, st.balloons y st.download_button del PDF",
-    "factura_pdf.py — campo 'forma_de_pago' renderizado como línea dedicada dentro de 'Datos para el pago', separado de las notas; app/main.py pasa forma_de_pago como campo propio",
-    "tests — tests/test_app_cuenta_cobro.py (AppTest de la nueva página) y casos de forma_de_pago en test_factura_pdf.py"
+    "Parámetros fiscales 2026: UVT 52.374 (Resolución DIAN 000238 de 2025) en uvt_history.json y SMMLV 1.750.905 (Decreto 1469 de 2025) en aportes.py; proyeccion.py usa UVT_VIGENTE del historial (clave del dict ahora es 'uvt'); SMMLV_VIGENTE como alias actualizable; retrocompatibilidad con SMMLV_2024 y UVT_2024",
+    "Rediseño app 2026 (skill ui-ux-pro-max, sistema 'Dark Mode OLED' fintech): paleta bg #020617 / card #0F172A / CTA verde #22C55E, tipografía IBM Plex Sans, iconos SVG inline estilo Lucide (ui.ICONS + ui.icono), ui.titulo_pagina e ui.pill_estado; navegación lateral sin emojis con hover/activo (CSS :has sobre st.radio), focus-visible, prefers-reduced-motion, hover de tarjetas sin layout shift (.fco-card)",
+    "Utilidades nuevas: exportar comparación de plataformas a CSV, exportar proyección anual a CSV, resumen copiable (st.code) en Plataformas, indicador de confianza con normativa 2026 en Inicio"
   ],
   "ya_existian": [
-    "plataformas.py (9 plataformas), comparador.py, trm_live.py (3 fuentes + fallback), proyeccion.py (Art.241 ET), calculadora.py, factura_pdf.py, documento_pdf.py, app/ui.py (dark finance), Action TRM"
+    "plataformas.py (9 plataformas), comparador.py, trm_live.py (3 fuentes + fallback), proyeccion.py (Art.241 ET), calculadora.py, factura_pdf.py, documento_pdf.py, Action TRM, página Cuenta de cobro"
   ],
   "en_progreso": "",
-  "siguiente_paso": "Snapshot/golden test del PDF de factura y de la cuenta de cobro; soportar varios ítems en la cuenta de cobro (hoy es un único valor); exportar el desglose a CSV.",
-  "tests_pasando": 151,
-  "notas_tecnicas": "pytest (PYTHONPATH=src) -> 151 passed, incluye AppTest de las 7 páginas. Existe un editable install previo de factura_co apuntando a /tmp/brausin_work/fco; para verificar contra ESTE clon se usa PYTHONPATH=src. /tmp == C:/Users/juans/AppData/Local/Temp (Git Bash MINGW64).",
+  "siguiente_paso": "Snapshot/golden test del PDF de factura y cuenta de cobro; soportar varios ítems en la cuenta de cobro; revisar si los PDF deben mostrar los valores 2026 en sus pies de página.",
+  "tests_pasando": 152,
+  "notas_tecnicas": "pytest (PYTHONPATH=src) -> 152 passed, incluye AppTest. El label de navegación de tests es ahora 'Cuenta de cobro' (sin emoji). Smoke AppTest manual de las 7 páginas OK. La skill de diseño vive en ~/.claude/skills/ui-ux-pro-max (search.py --design-system). /tmp == C:/Users/juans/AppData/Local/Temp (Git Bash MINGW64).",
   "pendiente_diseno": [
     "Snapshot/golden test del PDF de factura y cuenta de cobro",
     "Cuenta de cobro con múltiples ítems"
