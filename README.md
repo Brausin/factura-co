@@ -35,7 +35,7 @@ El historial completo de UVT (2015–2026) vive en [`data/uvt_history.json`](dat
 
 ## La app
 
-Interfaz Streamlit con sistema de diseño **dark OLED fintech** (fondo `#020617`, CTA verde, tipografía IBM Plex Sans, iconos SVG):
+Interfaz Streamlit con sistema de diseño **Glassmorphism fintech** (mesh aurora sobre slate profundo `#0F172A`, tarjetas de vidrio con blur, acento oro `#F59E0B`, CTA violeta `#8B5CF6`, tipografía DM Sans, iconos SVG estilo Lucide, números tabulares):
 
 | Página | Qué hace |
 |--------|----------|
@@ -62,7 +62,7 @@ streamlit run app/main.py
 | 📈 `proyeccion` | Proyección anual con retención, aportes e impuesto de renta usando la UVT vigente. |
 | 🧾 `retenciones` | Retención en la fuente por tipo de servicio (Art. 392/401 ET) e ICA por municipio. |
 | 🏥 `aportes` | Aportes a salud y pensión del independiente (IBC 40 %, pisos y techos 2026). |
-| 📄 `factura_pdf` / `documento_pdf` | Factura y cuenta de cobro en **PDF** con `fpdf2`, sin dependencias pesadas. |
+| 📄 `factura_pdf` / `documento_pdf` | Factura y cuenta de cobro en **PDF** con `fpdf2`, sin dependencias pesadas. Diseño de marca: banda slate con pill dorado para el número, tarjetas de cliente/resumen, tabla con zebra y caja de total destacada. |
 
 ## Plataformas soportadas
 
@@ -171,7 +171,7 @@ factura-co/
 │   └── documento_pdf.py   # cuenta de cobro en PDF
 ├── app/
 │   ├── main.py            # app Streamlit (7 páginas)
-│   └── ui.py              # sistema de diseño dark OLED fintech
+│   └── ui.py              # sistema de diseño Glassmorphism fintech
 ├── data/
 │   ├── tablas_retencion_2025.json
 │   └── uvt_history.json   # UVT 2015–2026 con resolución DIAN de cada año

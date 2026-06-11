@@ -1,18 +1,18 @@
 {
   "fecha": "2026-06-10T00:00:00Z",
-  "ultimo_commit": "906f726",
+  "ultimo_commit": "pendiente-push",
   "modulos_completados": [
-    "Parámetros fiscales 2026: UVT 52.374 (Resolución DIAN 000238 de 2025) en uvt_history.json y SMMLV 1.750.905 (Decreto 1469 de 2025) en aportes.py; proyeccion.py usa UVT_VIGENTE del historial (clave del dict ahora es 'uvt'); SMMLV_VIGENTE como alias actualizable; retrocompatibilidad con SMMLV_2024 y UVT_2024",
-    "Rediseño app 2026 (skill ui-ux-pro-max, sistema 'Dark Mode OLED' fintech): paleta bg #020617 / card #0F172A / CTA verde #22C55E, tipografía IBM Plex Sans, iconos SVG inline estilo Lucide (ui.ICONS + ui.icono), ui.titulo_pagina e ui.pill_estado; navegación lateral sin emojis con hover/activo (CSS :has sobre st.radio), focus-visible, prefers-reduced-motion, hover de tarjetas sin layout shift (.fco-card)",
-    "Utilidades nuevas: exportar comparación de plataformas a CSV, exportar proyección anual a CSV, resumen copiable (st.code) en Plataformas, indicador de confianza con normativa 2026 en Inicio"
+    "Rediseño total de PDFs (factura_pdf.py y documento_pdf.py) con identidad Glassmorphism fintech: banda slate #0F172A, pill dorado #F59E0B con el número, tarjetas Facturar a / Resumen (factura) y Cobrado por / Cobrado a (cuenta), tabla con cabecera oscura + zebra multilínea, caja de TOTAL/NETO en slate con cifra dorada, footer con barra bicolor violeta/oro y paginación; razones sociales largas se envuelven; separador de miles con punto; muestras revisadas visualmente (5 PDFs en muestras/, gitignored)",
+    "Bugs corregidos: sliders restrictivos (USD step 50, TRM step 50) -> number_input step 1 con eco en vivo del valor con miles (eco_cop/eco_usd/eco_trm en main.py); steps COP 50k/100k -> 1.000; Factura y Cuenta de cobro sin st.form (vista previa realmente viva) con validación por campo junto al campo que falla; textos superpuestos: el contenido de expanders cerrados se pintaba encima del contenido inferior, corregido en ui.py (details:not([open]) display:none); badge de TRM ya no dice 'datos.gov.co' cuando la fuente es fallback",
+    "Rediseño app 2026 (skill ui-ux-pro-max, sistema 'Glassmorphism' + paleta 'Gold trust + purple tech'): mesh aurora fijo sobre slate #0F172A, tarjetas .fco-card de vidrio (blur 14px, borde rgba blanco, reflejo superior), acento oro #F59E0B, CTA violeta #8B5CF6, info cian #38BDF8, ok esmeralda #34D399, tipografía DM Sans, hero con gradiente, sidebar de vidrio con nav dorada activa, radio principal como control segmentado, Plotly retematizado (DM Sans, dorado para la mejor barra), favicon :material/receipt_long: (sin emoji)"
   ],
   "ya_existian": [
-    "plataformas.py (9 plataformas), comparador.py, trm_live.py (3 fuentes + fallback), proyeccion.py (Art.241 ET), calculadora.py, factura_pdf.py, documento_pdf.py, Action TRM, página Cuenta de cobro"
+    "plataformas.py (9 plataformas), comparador.py, trm_live.py (3 fuentes + fallback), proyeccion.py (Art.241 ET), calculadora.py, Action TRM, página Cuenta de cobro, UVT 52.374 / SMMLV 1.750.905 (2026) con alias UVT_VIGENTE y SMMLV_VIGENTE"
   ],
   "en_progreso": "",
-  "siguiente_paso": "Snapshot/golden test del PDF de factura y cuenta de cobro; soportar varios ítems en la cuenta de cobro; revisar si los PDF deben mostrar los valores 2026 en sus pies de página.",
+  "siguiente_paso": "Snapshot/golden test del PDF de factura y cuenta de cobro; soportar varios ítems en el formulario de la cuenta de cobro.",
   "tests_pasando": 152,
-  "notas_tecnicas": "pytest (PYTHONPATH=src) -> 152 passed, incluye AppTest. El label de navegación de tests es ahora 'Cuenta de cobro' (sin emoji). Smoke AppTest manual de las 7 páginas OK. La skill de diseño vive en ~/.claude/skills/ui-ux-pro-max (search.py --design-system). /tmp == C:/Users/juans/AppData/Local/Temp (Git Bash MINGW64).",
+  "notas_tecnicas": "pytest (PYTHONPATH=src) -> 152 passed, incluye AppTest. Smoke AppTest de las 7 páginas OK. QA visual programática con Claude Preview: detector JS de textos superpuestos en las 7 páginas (0 colisiones tras el fix de expanders), sin overflow horizontal a 375px, contraste medido texto 17:1 / muted 8.3:1 / oro 8.3:1, focus-visible y prefers-reduced-motion presentes. El tool de screenshot del preview se cuelga en esta máquina; usar preview_eval + snapshot. La skill de diseño vive en ~/.claude/skills/ui-ux-pro-max.",
   "pendiente_diseno": [
     "Snapshot/golden test del PDF de factura y cuenta de cobro",
     "Cuenta de cobro con múltiples ítems"

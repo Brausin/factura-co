@@ -1,9 +1,10 @@
 """
 main.py — factura-co · Calculadora financiera para freelancers colombianos.
 
-Aplicación Streamlit con estética "dark finance": navegación por secciones,
-componentes visuales custom (ver app/ui.py) y gráficos Plotly. Reúne todas las
-herramientas del paquete factura_co en una sola interfaz:
+Aplicación Streamlit con estética "Glassmorphism fintech" (ver app/ui.py):
+mesh aurora sobre slate profundo, tarjetas de vidrio, acentos oro/violeta y
+gráficos Plotly tematizados. Reúne todas las herramientas del paquete
+factura_co en una sola interfaz:
 
     Inicio · Plataformas · Comparador · Calculadora inversa · Proyección · Factura
 
@@ -42,7 +43,7 @@ C = COLORS  # alias corto para los f-strings de estilo
 # ── Configuración base ───────────────────────────────────────────────────────
 st.set_page_config(
     page_title="factura-co · Finanzas freelancer Colombia",
-    page_icon="🧾",
+    page_icon=":material/receipt_long:",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -74,10 +75,16 @@ def trm_info_cached() -> dict:
 
 
 def trm_badge(info: dict) -> str:
-    """Pill de estado de la TRM: ámbar si es estimada, verde si es oficial."""
+    """Pill de estado de la TRM: ámbar si es estimada, verde si es en vivo.
+
+    El texto refleja la fuente real (puede ser datos.gov.co o un fallback),
+    que se muestra completa junto al indicador.
+    """
     if info["es_estimado"]:
         return pill_estado("Estimado", "alerta")
-    return pill_estado("Oficial · datos.gov.co", "ok")
+    fuente = str(info.get("fuente", ""))
+    texto = "Oficial · datos.gov.co" if "datos.gov.co" in fuente else "En vivo"
+    return pill_estado(texto, "ok")
 
 
 def eco_cop(valor: float) -> None:
@@ -104,13 +111,15 @@ def eco_trm(valor: float) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 def pagina_inicio(trm_info: dict):
     trm = trm_info["trm"]
-    md("<div style='font-size:34px;font-weight:700;letter-spacing:-.02em'>"
-       "factura&#8209;co</div>"
-       f"<div style='color:{C['muted']};font-size:15px;margin-bottom:8px'>"
+    md(f"<div style='font-size:38px;font-weight:800;letter-spacing:-.02em;"
+       f"background:linear-gradient(92deg,{C['text']} 30%,{C['gold']} 70%,"
+       f"{C['violet']});-webkit-background-clip:text;background-clip:text;"
+       f"-webkit-text-fill-color:transparent'>factura&#8209;co</div>"
+       f"<div style='color:{C['muted']};font-size:15px;margin-bottom:10px'>"
        "Cuánto recibes realmente como freelancer en Colombia — retenciones, "
        "aportes, comisiones de plataforma y proyección anual.</div>"
        f"<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px;"
-       f"color:{C['muted']};font-size:12px'>{icono('shield-check', 15, C['green'])}"
+       f"color:{C['muted']};font-size:12px'>{icono('shield-check', 15, C['gold'])}"
        "<span>Cálculos con normativa vigente 2026: UVT y retención DIAN, "
        "SMMLV oficial y TRM de datos.gov.co</span></div>")
 
@@ -119,17 +128,17 @@ def pagina_inicio(trm_info: dict):
 
     md(seccion("Indicadores de hoy", trm_info["fuente"]))
     md(fila_cards([
-        card("TRM USD/COP", ui.fmt_cop(trm), trm_badge(trm_info), COLORS["blue"]),
+        card("TRM USD/COP", ui.fmt_cop(trm), trm_badge(trm_info), COLORS["sky"]),
         card("Mejor plataforma · US$1.000", mejor["plataforma"],
-             f"Neto {ui.fmt_cop(mejor['valor_cop'])}", COLORS["green"]),
+             f"Neto {ui.fmt_cop(mejor['valor_cop'])}", COLORS["gold"]),
         card("SMMLV en dólares", ui.fmt_usd(smmlv_usd),
-             f"{ui.fmt_cop(SMMLV_VIGENTE)} / mes (2026)", COLORS["gold"]),
+             f"{ui.fmt_cop(SMMLV_VIGENTE)} / mes (2026)", COLORS["amber"]),
     ]))
 
-    md(f"<div style='background:{C['card']};border:1px solid {C['border']};"
-       f"border-radius:12px;padding:14px 18px;margin:10px 0;font-size:15px;"
+    md(f"<div class='fco-card' style='padding:14px 18px;margin:10px 0;font-size:15px;"
        f"display:flex;align-items:center;gap:10px;flex-wrap:wrap'>"
-       f"<span>Con la TRM de hoy → <b>US$1.000 = {ui.fmt_cop(trm * 1000)}</b></span>"
+       f"<span>Con la TRM de hoy → <b class='fco-num'>US$1.000 = "
+       f"{ui.fmt_cop(trm * 1000)}</b></span>"
        f"{trm_badge(trm_info)}</div>")
 
     # Top plataformas para una referencia de US$1.000
@@ -138,7 +147,7 @@ def pagina_inicio(trm_info: dict):
     fig = ui.plotly_barras_h(
         [r["plataforma"] for r in comp],
         [r["valor_cop"] for r in comp],
-        color=COLORS["green"], fmt="$,.0f",
+        color=COLORS["gold"], fmt="$,.0f",
     )
     st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
@@ -154,11 +163,10 @@ def pagina_inicio(trm_info: dict):
     ]
     for i, (icn, titulo, desc) in enumerate(tarjetas):
         with cols[i % 3]:
-            md(f"<div class='fco-card' style='background:{C['card']};border:1px solid "
-               f"{C['border']};border-radius:12px;padding:16px;margin:6px 0;"
+            md(f"<div class='fco-card' style='padding:16px;margin:6px 0;"
                f"min-height:96px'>"
                f"<div style='display:flex;align-items:center;gap:8px;font-weight:600;"
-               f"font-size:15px'>{icono(icn, 18, C['green'])}{titulo}</div>"
+               f"font-size:15px'>{icono(icn, 18, C['gold'])}{titulo}</div>"
                f"<div style='color:{C['muted']};font-size:13px;margin-top:6px'>"
                f"{desc}</div></div>")
 
@@ -201,12 +209,12 @@ def pagina_plataformas(trm_info: dict):
     md(seccion("Resultado", r["descripcion"]))
     md(fila_cards([
         card("Recibes (neto)", ui.fmt_cop(r["valor_cop"]),
-             badge(f"costo {r['costo_total_pct']:.1f}%", COLORS["gold"]),
-             COLORS["green"]),
+             badge(f"costo {r['costo_total_pct']:.1f}%", COLORS["amber"]),
+             COLORS["gold"]),
         card("Comisión total", ui.fmt_usd(r["comision_usd"]),
              f"≈ {ui.fmt_cop(r['comision_usd'] * trm)}", COLORS["red"]),
         card("TRM efectiva", ui.fmt_cop(r["trm_efectiva"]),
-             f"spread {r['spread_fx_pct']*100:.1f}%", COLORS["blue"]),
+             f"spread {r['spread_fx_pct']*100:.1f}%", COLORS["sky"]),
     ]))
 
     # Desglose visual: del bruto teórico al neto recibido
@@ -216,9 +224,9 @@ def pagina_plataformas(trm_info: dict):
     md(barra_h("Comisión de plataforma", r["comision_usd"] * trm, bruto_cop,
                COLORS["red"], ui.fmt_cop(r["comision_usd"] * trm)))
     md(barra_h("Pérdida por spread FX", bruto_cop * r["spread_fx_pct"], bruto_cop,
-               COLORS["gold"], ui.fmt_cop(round(bruto_cop * r["spread_fx_pct"]))))
+               COLORS["amber"], ui.fmt_cop(round(bruto_cop * r["spread_fx_pct"]))))
     md(barra_h("Neto que recibes", r["valor_cop"], bruto_cop,
-               COLORS["green"], ui.fmt_cop(r["valor_cop"])))
+               COLORS["gold"], ui.fmt_cop(r["valor_cop"])))
 
     if r["notas"]:
         st.caption(r["notas"])
@@ -265,11 +273,11 @@ def pagina_comparador(trm_info: dict):
     md(seccion("Mejor opción", ""))
     md(fila_cards([
         card("Ganadora", mejor["plataforma"],
-             badge("recomendada", COLORS["green"]), COLORS["green"]),
+             badge("recomendada", COLORS["gold"]), COLORS["gold"]),
         card("Recibes", ui.fmt_cop(mejor["valor_cop"]),
-             f"costo {mejor['costo_total_pct']:.1f}%", COLORS["green"]),
+             f"costo {mejor['costo_total_pct']:.1f}%", COLORS["gold"]),
         card("Ahorro vs. peor", ui.fmt_cop(ahorro),
-             f"frente a {peor['plataforma']}", COLORS["gold"]),
+             f"frente a {peor['plataforma']}", COLORS["amber"]),
     ]))
 
     # Gráfico Plotly de barras horizontales
@@ -277,7 +285,7 @@ def pagina_comparador(trm_info: dict):
     fig = ui.plotly_barras_h(
         [r["plataforma"] for r in comp],
         [r["valor_cop"] for r in comp],
-        color=COLORS["green"], fmt="$,.0f",
+        color=COLORS["gold"], fmt="$,.0f",
     )
     st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
@@ -359,14 +367,14 @@ def pagina_calculadora(trm_info: dict):
     md(seccion("Lo que debes facturar", ""))
     tarjetas = [
         card("Factura bruta (COP)", ui.fmt_cop(r["bruto_necesario"]),
-             badge("antes de descuentos", COLORS["blue"]), COLORS["blue"]),
+             badge("antes de descuentos", COLORS["sky"]), COLORS["sky"]),
         card("Neto que recibirás", ui.fmt_cop(r["neto_real"]),
-             f"objetivo {ui.fmt_cop(r['neto_deseado'])}", COLORS["green"]),
+             f"objetivo {ui.fmt_cop(r['neto_deseado'])}", COLORS["gold"]),
     ]
     if r.get("tiene_plataforma"):
         tarjetas.append(card(
             "Cobra al cliente (USD)", ui.fmt_usd(r["bruto_usd_necesario"]),
-            badge(PLAT_NOMBRES.get(plat_id, ""), COLORS["gold"]), COLORS["gold"]))
+            badge(PLAT_NOMBRES.get(plat_id, ""), COLORS["amber"]), COLORS["amber"]))
     md(fila_cards(tarjetas))
 
     # Desglose del bruto al neto, en una tabla HTML clara
@@ -379,8 +387,8 @@ def pagina_calculadora(trm_info: dict):
     ]
     if dg.get("total_aportes"):
         filas.append(("− Aportes a salud y pensión",
-                      "− " + ui.fmt_cop(dg["total_aportes"]), C["gold"], "500"))
-    filas.append(("= Neto que recibes", ui.fmt_cop(dg["neto"]), C["green"], "700"))
+                      "− " + ui.fmt_cop(dg["total_aportes"]), C["amber"], "500"))
+    filas.append(("= Neto que recibes", ui.fmt_cop(dg["neto"]), C["gold"], "700"))
 
     md(seccion("Cómo se reparte tu factura", "Del bruto facturado a tu bolsillo"))
     cuerpo = "".join(
@@ -448,14 +456,14 @@ def pagina_proyeccion(trm_info: dict):
     md(seccion("Resumen anual", sub))
     md(fila_cards([
         card("Ingreso bruto", ui.fmt_cop(proy["ingreso_bruto_anual"]),
-             f"{meses} meses", COLORS["blue"]),
+             f"{meses} meses", COLORS["sky"]),
         card("Neto disponible", ui.fmt_cop(proy["neto_anual"]),
-             badge(f"{proy['neto_pct_bruto']:.0f}% del bruto", COLORS["green"]),
-             COLORS["green"]),
+             badge(f"{proy['neto_pct_bruto']:.0f}% del bruto", COLORS["gold"]),
+             COLORS["gold"]),
         card("Impuesto de renta", ui.fmt_cop(proy["impuesto_renta_estimado"]),
              f"tasa efectiva {proy['tasa_renta_efectiva_pct']:.1f}%", COLORS["red"]),
         card("Aportes SS (año)", ui.fmt_cop(proy["total_aportes_anual"]),
-             "salud + pensión", COLORS["gold"]),
+             "salud + pensión", COLORS["amber"]),
     ]))
 
     cga, cgb = st.columns([3, 2])
@@ -466,7 +474,7 @@ def pagina_proyeccion(trm_info: dict):
         acum = [neto_mes * m for m in meses_x]
         fig = ui.plotly_area(
             [f"Mes {m}" for m in meses_x], acum,
-            titulo="Neto disponible acumulado", color=COLORS["green"],
+            titulo="Neto disponible acumulado", color=COLORS["gold"],
             nombre="Acumulado",
         )
         st.plotly_chart(fig, width="stretch",
@@ -478,7 +486,7 @@ def pagina_proyeccion(trm_info: dict):
             [proy["neto_anual"], proy["total_aportes_anual"],
              proy["impuesto_renta_estimado"]],
             titulo="Composición del bruto",
-            colores=[COLORS["green"], COLORS["gold"], COLORS["red"]],
+            colores=[COLORS["gold"], COLORS["amber"], COLORS["red"]],
         )
         st.plotly_chart(fig2, width="stretch",
                         config={"displayModeBar": False})
@@ -593,11 +601,11 @@ def pagina_factura():
             dg = _desglose_factura(datos_prev)
             md(seccion("Vista previa", f"Factura {dg['numero']} · {dg['fecha_str']}"))
             md(fila_cards([
-                card("Subtotal", ui.fmt_cop(dg["subtotal"]), "", COLORS["blue"]),
+                card("Subtotal", ui.fmt_cop(dg["subtotal"]), "", COLORS["sky"]),
                 card("Retención", "- " + ui.fmt_cop(dg["retencion_valor"]),
                      f"{dg['retencion_pct']*100:.0f}%", COLORS["red"]),
                 card("Total a pagar", ui.fmt_cop(dg["total"]),
-                     badge("neto cliente", COLORS["green"]), COLORS["green"]),
+                     badge("neto cliente", COLORS["gold"]), COLORS["gold"]),
             ]))
         except ValueError as exc:
             st.warning(str(exc))
@@ -718,21 +726,21 @@ def pagina_cuenta_cobro():
         neto = valor - valor_retencion
         md(seccion("Vista previa", f"Documento {numero}"))
         md(fila_cards([
-            card("Valor bruto", ui.fmt_cop(valor), "", COLORS["blue"]),
+            card("Valor bruto", ui.fmt_cop(valor), "", COLORS["sky"]),
             card("Retención", "- " + ui.fmt_cop(valor_retencion),
                  f"{retencion_pct:.0f}%" if incluir_retencion else "no aplica",
                  COLORS["red"]),
             card("Neto a pagar", ui.fmt_cop(neto),
-                 badge("recibe el freelancer", COLORS["green"]), COLORS["green"]),
+                 badge("recibe el freelancer", COLORS["gold"]), COLORS["gold"]),
         ]))
         if incluir_aportes:
             ap = calcular_aportes(valor)
             md(seccion("Aportes a seguridad social", "A cargo del prestador (IBC 40%)"))
             md(fila_cards([
-                card("Salud (12.5%)", ui.fmt_cop(ap["aporte_salud"]), "", COLORS["gold"]),
-                card("Pensión (16%)", ui.fmt_cop(ap["aporte_pension"]), "", COLORS["gold"]),
+                card("Salud (12.5%)", ui.fmt_cop(ap["aporte_salud"]), "", COLORS["amber"]),
+                card("Pensión (16%)", ui.fmt_cop(ap["aporte_pension"]), "", COLORS["amber"]),
                 card("Total aportes", ui.fmt_cop(ap["total_aportes"]),
-                     badge("mensual", COLORS["gold"]), COLORS["gold"]),
+                     badge("mensual", COLORS["amber"]), COLORS["amber"]),
             ]))
 
     if generar and not valido:
@@ -782,7 +790,7 @@ def pagina_cuenta_cobro():
 def main():
     with st.sidebar:
         md(f"<div style='display:flex;align-items:center;gap:8px;font-size:22px;"
-           f"font-weight:700;padding:4px 0 2px'>{icono('receipt', 21, C['green'])}"
+           f"font-weight:700;padding:4px 0 2px'>{icono('receipt', 21, C['gold'])}"
            f"factura&#8209;co</div>"
            f"<div style='color:{C['muted']};font-size:12px;margin-bottom:14px'>"
            f"Finanzas freelancer · Colombia</div>")
@@ -795,12 +803,16 @@ def main():
         )
         st.divider()
         trm_info = trm_info_cached()
-        md(f"<div style='color:{C['muted']};font-size:11px'>TRM hoy</div>"
-           f"<div style='font-size:18px;font-weight:700;font-variant-numeric:"
-           f"tabular-nums'>{ui.fmt_cop(trm_info['trm'])}</div>"
+        md(f"<div class='fco-card' style='padding:12px 14px'>"
+           f"<div style='display:flex;align-items:center;gap:6px;"
+           f"color:{C['muted']};font-size:11px;font-weight:600;"
+           f"text-transform:uppercase;letter-spacing:.07em'>"
+           f"{icono('trending-up', 13, C['gold'])}TRM hoy</div>"
+           f"<div class='fco-num' style='font-size:19px;font-weight:700;"
+           f"margin-top:3px'>{ui.fmt_cop(trm_info['trm'])}</div>"
            f"<div style='color:{C['muted']};font-size:10px;margin-top:2px'>"
-           f"{trm_info['fuente']}</div>")
-        md(f"<div style='position:relative;margin-top:18px;color:{C['muted']};"
+           f"{trm_info['fuente']}</div></div>")
+        md(f"<div style='margin-top:16px;color:{C['muted']};"
            f"font-size:10px'>v{__version__}</div>")
 
     if pagina.endswith("Inicio"):
