@@ -16,7 +16,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.factura_co.retenciones import calcular_retencion, listar_tipos_servicio, UVT_2024
-from src.factura_co.aportes import calcular_aportes, ingreso_base_cotizacion, SMMLV_2024
+from src.factura_co.aportes import calcular_aportes, ingreso_base_cotizacion, SMMLV_VIGENTE
 from src.factura_co.calculadora import calcular_neto
 
 
@@ -86,13 +86,13 @@ class TestRetencionServicios:
         assert base_minima == 4 * 47_065
 
     def test_servicios_por_encima_base_minima(self):
-        """$500.000 > 4 UVT ($188.260) → aplica retención"""
+        """$500.000 > 4 UVT 2026 ($209.496) → aplica retención"""
         r = calcular_retencion(500_000, "servicios")
         assert r["aplica"] is True
         assert r["valor_retencion"] == 30_000  # 500.000 × 6%
 
     def test_servicios_por_debajo_base_minima(self):
-        """$100.000 < 4 UVT ($188.260) → no aplica retención"""
+        """$100.000 < 4 UVT 2026 ($209.496) → no aplica retención"""
         r = calcular_retencion(100_000, "servicios")
         assert r["aplica"] is False
         assert r["valor_retencion"] == 0
@@ -138,17 +138,17 @@ class TestIBC:
 
     def test_ibc_minimo_1_smmlv(self):
         """Si 40% del ingreso < SMMLV, se usa SMMLV como IBC"""
-        # 40% de $3.000.000 = $1.200.000 < SMMLV ($1.300.000)
+        # 40% de $3.000.000 = $1.200.000 < SMMLV 2026 ($1.750.905)
         ibc = ingreso_base_cotizacion(3_000_000)
         assert ibc["ibc_calculado"] == 1_200_000
-        assert ibc["ibc_aplicado"] == SMMLV_2024  # Se ajusta al mínimo
+        assert ibc["ibc_aplicado"] == SMMLV_VIGENTE  # Se ajusta al mínimo
         assert ibc["ajuste_aplicado"] == "minimo"
 
     def test_ibc_maximo_25_smmlv(self):
         """Si 40% del ingreso > 25 SMMLV, se usa 25 SMMLV como techo"""
-        # Ingreso muy alto
-        ibc = ingreso_base_cotizacion(100_000_000)
-        assert ibc["ibc_aplicado"] == SMMLV_2024 * 25
+        # 40% de $150M = $60M > techo 2026 ($43.772.625)
+        ibc = ingreso_base_cotizacion(150_000_000)
+        assert ibc["ibc_aplicado"] == SMMLV_VIGENTE * 25
         assert ibc["ajuste_aplicado"] == "maximo"
 
     def test_ibc_negativo_lanza_error(self):
@@ -218,18 +218,18 @@ class TestCalculadoraNeto:
 
     def test_caso_real_honorarios_3m(self):
         """
-        Caso real verificado manualmente:
+        Caso real verificado manualmente (valores 2026):
         $3.000.000 honorarios, no declarante
         Retención: 3M × 11% = 330.000
         Valor recibido: 2.670.000
-        IBC: ajustado a SMMLV = 1.300.000 (40% = 1.2M < 1.3M)
-        Salud: 1.300.000 × 12.5% = 162.500
-        Pensión: 1.300.000 × 16% = 208.000
-        Neto: 2.670.000 - 162.500 - 208.000 = 2.299.500
+        IBC: ajustado a SMMLV 2026 = 1.750.905 (40% = 1.2M < 1.75M)
+        Salud: 1.750.905 × 12.5% = 218.863
+        Pensión: 1.750.905 × 16% = 280.145
+        Neto: 2.670.000 - 218.863 - 280.145 = 2.170.992
         """
         r = calcular_neto(3_000_000, "honorarios")
         assert r["valor_retenido"] == 330_000
         assert r["valor_recibido"] == 2_670_000
-        assert r["aportes"]["aporte_salud"] == 162_500
-        assert r["aportes"]["aporte_pension"] == 208_000
-        assert r["neto"] == 2_299_500
+        assert r["aportes"]["aporte_salud"] == 218_863
+        assert r["aportes"]["aporte_pension"] == 280_145
+        assert r["neto"] == 2_170_992

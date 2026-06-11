@@ -32,7 +32,7 @@ def _cargar_uvt_history() -> dict:
     return {
         2015: 28279, 2016: 29753, 2017: 31859, 2018: 33156, 2019: 34270,
         2020: 35607, 2021: 36308, 2022: 38004, 2023: 42412, 2024: 47065,
-        2025: 49799,
+        2025: 49799, 2026: 52374,
     }
 
 UVT_HISTORY = _cargar_uvt_history()
@@ -63,7 +63,7 @@ def obtener_uvt(año: Optional[int] = None) -> int:
         >>> obtener_uvt(2023)
         42412
         >>> obtener_uvt()  # año más reciente
-        49799
+        52374
     """
     if año is None:
         return UVT_VIGENTE
@@ -186,7 +186,7 @@ def calcular_retencion(
             - "compras": compra de bienes
             - "transporte": servicios de transporte
         es_declarante: True si el beneficiario declara renta. Generalmente
-            aplica si ingresos anuales > 1.400 UVT (~$69.7M en 2025).
+            aplica si ingresos anuales > 1.400 UVT (~$73.3M en 2026).
         uvt: Valor explícito del UVT a usar. Si se omite, se usa el valor
             del año indicado en `año`, o el vigente si tampoco se especifica.
         año: Año fiscal para seleccionar el UVT correspondiente.

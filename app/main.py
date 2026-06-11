@@ -23,7 +23,7 @@ import streamlit as st
 import pandas as pd
 
 from factura_co import __version__
-from factura_co.aportes import SMMLV_2024, calcular_aportes
+from factura_co.aportes import SMMLV_VIGENTE, calcular_aportes
 from factura_co.calculadora import calcular_neto, calcular_bruto_necesario
 from factura_co.plataformas import calcular_neto_plataforma, listar_plataformas
 from factura_co.comparador import comparar_plataformas, mejor_plataforma
@@ -94,7 +94,7 @@ def pagina_inicio(trm_info: dict):
        "Cuánto recibes realmente como freelancer en Colombia — retenciones, "
        "aportes, comisiones de plataforma y proyección anual.</div>")
 
-    smmlv_usd = SMMLV_2024 / trm
+    smmlv_usd = SMMLV_VIGENTE / trm
     mejor = mejor_plataforma(1000, trm)
 
     md(seccion("Indicadores de hoy", trm_info["fuente"]))
@@ -103,7 +103,7 @@ def pagina_inicio(trm_info: dict):
         card("Mejor plataforma · US$1.000", mejor["plataforma"],
              f"Neto {ui.fmt_cop(mejor['valor_cop'])}", COLORS["green"]),
         card("SMMLV en dólares", ui.fmt_usd(smmlv_usd),
-             f"{ui.fmt_cop(SMMLV_2024)} / mes", COLORS["gold"]),
+             f"{ui.fmt_cop(SMMLV_VIGENTE)} / mes (2026)", COLORS["gold"]),
     ]))
 
     md(f"<div style='background:{C['card']};border:1px solid {C['border']};"
@@ -421,8 +421,8 @@ def pagina_proyeccion(trm_info: dict):
         st.plotly_chart(fig2, width="stretch",
                         config={"displayModeBar": False})
 
-    st.caption("📋 Basado en tabla Art. 241 ET, UVT 2024 = $47.065. "
-               "No constituye asesoría tributaria.")
+    st.caption("Basado en tabla Art. 241 ET, UVT 2026 = $52.374 "
+               "(Resolución DIAN 000238 de 2025). No constituye asesoría tributaria.")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

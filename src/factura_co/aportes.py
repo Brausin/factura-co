@@ -1,5 +1,5 @@
 """
-aportes.py — Cálculo de aportes a salud y pensión para independientes (2024).
+aportes.py — Cálculo de aportes a salud y pensión para independientes (2026).
 
 Los trabajadores independientes en Colombia deben cotizar al Sistema General
 de Seguridad Social (SGSS) de manera autónoma. La base de cotización es el
@@ -10,22 +10,29 @@ Marco legal:
     - Ley 1955 de 2019: Piso de protección social
     - Decreto 1601 de 2022: Reglamentación para independientes por contrato
     - Circular 01 de 2023 UGPP: Tarifas y procedimientos
+    - Decreto 1469 de 2025: Salario mínimo legal vigente para 2026
 
-Tarifas 2024:
+Tarifas vigentes:
     - Salud: 12.5% del IBC (empleador: 8.5% + empleado: 4% — para independientes, pago total)
     - Pensión: 16% del IBC (empleador: 12% + empleado: 4% — para independientes, pago total)
-    - IBC mínimo: 1 SMMLV = $1.300.000 (2024)
-    - IBC máximo: 25 SMMLV = $32.500.000 (2024)
+    - IBC mínimo: 1 SMMLV = $1.750.905 (2026)
+    - IBC máximo: 25 SMMLV = $43.772.625 (2026)
 """
 
-# Salario Mínimo Mensual Legal Vigente 2024
+# Salario Mínimo Mensual Legal Vigente 2026 (Decreto 1469 de 2025)
+SMMLV_2026 = 1_750_905
+
+# SMMLV 2024 — se conserva para retrocompatibilidad y comparaciones históricas
 SMMLV_2024 = 1_300_000
 
+# Alias del salario mínimo vigente: actualizar aquí cuando cambie el año
+SMMLV_VIGENTE = SMMLV_2026
+
 # IBC mínimo: 1 SMMLV
-IBC_MINIMO = SMMLV_2024
+IBC_MINIMO = SMMLV_VIGENTE
 
 # IBC máximo: 25 SMMLV
-IBC_MAXIMO = SMMLV_2024 * 25
+IBC_MAXIMO = SMMLV_VIGENTE * 25
 
 # Tarifas de cotización para independientes
 TARIFA_SALUD = 0.125    # 12.5%
@@ -59,7 +66,7 @@ def ingreso_base_cotizacion(ingreso_bruto: float) -> dict:
     Examples:
         >>> ibc = ingreso_base_cotizacion(3_000_000)
         >>> ibc["ibc_aplicado"]
-        1300000
+        1750905
         >>> ibc["ajuste_aplicado"]
         'minimo'
 
@@ -124,13 +131,13 @@ def calcular_aportes(ingreso_mensual: float) -> dict:
         >>> # Freelancer con $3.000.000 en honorarios
         >>> a = calcular_aportes(3_000_000)
         >>> a["ibc"]
-        1300000
+        1750905
         >>> a["aporte_salud"]
-        162500
+        218863
         >>> a["aporte_pension"]
-        208000
+        280145
         >>> a["total_aportes"]
-        370500
+        499008
 
         >>> # Freelancer con ingresos altos: $8.000.000
         >>> a = calcular_aportes(8_000_000)

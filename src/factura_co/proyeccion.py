@@ -13,12 +13,13 @@ Dado un ingreso mensual promedio en USD o COP, proyecta:
 
 from __future__ import annotations
 import math
-from .retenciones import calcular_retencion, TipoServicio
+from .retenciones import calcular_retencion, TipoServicio, UVT_VIGENTE
 from .aportes import calcular_aportes
 
 
-# Rangos impuesto de renta 2024 (UVT base 47.065 COP)
-# Fuente: Estatuto Tributario Art. 241, valores en UVT
+# Rangos del impuesto de renta (Estatuto Tributario Art. 241, valores en UVT).
+# Los límites en UVT no cambian año a año; el valor de la UVT sí (ver
+# data/uvt_history.json — UVT 2026 = $52.374, Resolución DIAN 000238 de 2025).
 TABLA_RENTA_UVT = [
     # (limite_inferior_uvt, limite_superior_uvt, tasa, uvt_exceso_base)
     (0,     1090,  0.000, 0),
@@ -29,7 +30,8 @@ TABLA_RENTA_UVT = [
     (18970, math.inf, 0.390, 18970),
 ]
 
-UVT_2024 = 47_065.0  # COP
+# UVT usada para liquidar la tabla: siempre la vigente del historial
+UVT_RENTA = float(UVT_VIGENTE)
 
 
 def calcular_impuesto_renta(renta_liquida_cop: float) -> dict:
@@ -45,7 +47,7 @@ def calcular_impuesto_renta(renta_liquida_cop: float) -> dict:
     Returns:
         dict con: renta_liquida, renta_uvt, impuesto_cop, tasa_efectiva_pct.
     """
-    renta_uvt = renta_liquida_cop / UVT_2024
+    renta_uvt = renta_liquida_cop / UVT_RENTA
     impuesto_uvt = 0.0
 
     for lim_inf, lim_sup, tasa, base in TABLA_RENTA_UVT:
@@ -54,7 +56,7 @@ def calcular_impuesto_renta(renta_liquida_cop: float) -> dict:
         exceso_uvt = min(renta_uvt, lim_sup) - lim_inf
         impuesto_uvt += exceso_uvt * tasa
 
-    impuesto_cop = impuesto_uvt * UVT_2024
+    impuesto_cop = impuesto_uvt * UVT_RENTA
     tasa_efectiva = (impuesto_cop / renta_liquida_cop * 100) if renta_liquida_cop > 0 else 0
 
     return {
@@ -62,7 +64,7 @@ def calcular_impuesto_renta(renta_liquida_cop: float) -> dict:
         "renta_uvt": round(renta_uvt, 2),
         "impuesto_cop": round(impuesto_cop),
         "tasa_efectiva_pct": round(tasa_efectiva, 2),
-        "uvt_2024": UVT_2024,
+        "uvt": UVT_RENTA,
     }
 
 

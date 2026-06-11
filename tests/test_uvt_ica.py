@@ -25,6 +25,10 @@ class TestUVTHistory:
     def test_uvt_2025_valor_correcto(self):
         assert obtener_uvt(2025) == 49_799
 
+    def test_uvt_2026_valor_correcto(self):
+        """UVT 2026 = $52.374 (Resolución DIAN 000238 de 2025)."""
+        assert obtener_uvt(2026) == 52_374
+
     def test_uvt_sin_año_retorna_vigente(self):
         """Sin parámetro retorna el UVT del año más reciente."""
         uvt = obtener_uvt()
@@ -34,8 +38,8 @@ class TestUVTHistory:
         """UVT_2024 sigue siendo 47.065 para retrocompatibilidad."""
         assert UVT_2024 == 47_065
 
-    def test_historial_cubre_2015_a_2025(self):
-        for año in range(2015, 2026):
+    def test_historial_cubre_2015_a_2026(self):
+        for año in range(2015, 2027):
             assert año in UVT_HISTORY, f"Falta UVT para {año}"
 
     def test_uvt_año_invalido(self):
