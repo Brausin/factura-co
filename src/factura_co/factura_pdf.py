@@ -1,5 +1,5 @@
 """
-factura_pdf.py — Generador de facturas/cuentas profesionales en PDF.
+factura_pdf.py — Generador de facturas profesionales en PDF.
 
 A diferencia de :mod:`documento_pdf` (cuenta de cobro con estructura anidada),
 este módulo expone una API plana y directa pensada para integrarse con
@@ -7,9 +7,13 @@ formularios web: recibe un único diccionario con los campos del documento y
 devuelve los bytes del PDF, listos para `st.download_button` o para guardar
 en disco.
 
-El documento generado tiene identidad de marca (banda superior oscura con
-acentos dorado/verde) pero conserva un cuerpo claro, imprimible y legible en
-blanco y negro.
+Identidad visual (sistema ui-ux-pro-max · Glassmorphism fintech):
+    - Cabecera de marca en azul slate profundo (#0F172A) con barra de acento
+      dorado/violeta, chip de iniciales y bloque «FACTURA N.º …» destacado.
+    - Tarjetas de cliente y resumen, tabla de conceptos con cabecera oscura
+      y zebra striping, y bloque de total en caja oscura con cifra dorada.
+    - Jerarquía tipográfica real (etiquetas pequeñas en mayúsculas con
+      tracking, valores tabulares grandes) y espaciado generoso.
 
 Marco legal:
     - Artículo 615 ET: obligación de expedir factura o documento equivalente.
@@ -48,17 +52,21 @@ except ImportError:
         "fpdf2 es requerido para generar PDFs. Instálalo con: pip install fpdf2"
     )
 
-# ── Paleta de marca (factura-co dark finance) ────────────────────────────────
-_FONDO_OSCURO = (13, 17, 23)     # #0D1117 banda superior
-_CARD_OSCURO  = (33, 38, 45)     # #21262D cabecera de tabla
-_DORADO       = (245, 166, 35)   # #F5A623 acento principal
-_VERDE        = (0, 160, 120)    # #00A078 neto a favor (versión imprimible)
-_ROJO         = (198, 40, 55)    # retenciones / descuentos
-_NEGRO        = (28, 33, 40)     # texto principal
-_GRIS_TEXTO   = (110, 118, 128)  # texto secundario
-_GRIS_CLARO   = (244, 246, 248)  # filas alternas
-_GRIS_BORDE   = (210, 215, 222)  # bordes suaves
-_BLANCO       = (255, 255, 255)
+# ── Paleta de marca (Glassmorphism fintech: slate + oro + violeta) ───────────
+_SLATE_900   = (15, 23, 42)      # #0F172A banda de marca y caja de total
+_SLATE_700   = (51, 65, 85)      # #334155 texto secundario fuerte
+_SLATE_500   = (100, 116, 139)   # #64748B etiquetas y texto auxiliar
+_SLATE_200   = (226, 232, 240)   # #E2E8F0 bordes suaves
+_SLATE_100   = (241, 245, 249)   # #F1F5F9 tarjetas de información
+_SLATE_50    = (248, 250, 252)   # #F8FAFC filas zebra
+_ORO         = (245, 158, 11)    # #F59E0B acento principal
+_ORO_SUAVE   = (254, 243, 199)   # #FEF3C7 pill del número de documento
+_VIOLETA     = (139, 92, 246)    # #8B5CF6 acento secundario de la barra
+_ROJO        = (220, 38, 38)     # #DC2626 retenciones / descuentos
+_VERDE       = (5, 150, 105)     # #059669 refuerzo positivo
+_TINTA       = (15, 23, 42)      # texto principal (mismo slate 900)
+_BLANCO      = (255, 255, 255)
+_NUBE        = (203, 213, 225)   # #CBD5E1 texto claro sobre banda oscura
 
 _MESES_ES = {
     1: "enero", 2: "febrero", 3: "marzo", 4: "abril",
@@ -76,10 +84,15 @@ _REQUERIDOS = (
     "valor_cop",
 )
 
+# Geometría base (A4 vertical, márgenes simétricos).
+_MARGEN = 16
+_ANCHO = 210
+_CONTENIDO = _ANCHO - 2 * _MARGEN  # 178 mm útiles
+
 
 def _fmt_cop(valor: float) -> str:
     """Formatea un número como pesos colombianos: ``$ 5.000.000``."""
-    return f"$ {valor:,.0f}"
+    return "$ " + f"{valor:,.0f}".replace(",", ".")
 
 
 def _parse_fecha(valor: Union[None, str, date, datetime]) -> date:
@@ -183,12 +196,12 @@ def _desglose_factura(datos: dict) -> dict:
 
 
 class _Factura(FPDF):
-    """Subclase FPDF con banda de marca y pie de página fiscal."""
+    """Subclase FPDF con pie de página fiscal de marca."""
 
     def __init__(self):
         super().__init__()
-        self.set_margins(18, 18, 18)
-        self.set_auto_page_break(auto=True, margin=20)
+        self.set_margins(_MARGEN, _MARGEN, _MARGEN)
+        self.set_auto_page_break(auto=True, margin=24)
 
     def normalize_text(self, txt):
         """Sustituye caracteres fuera de latin-1 por equivalentes seguros."""
@@ -196,8 +209,8 @@ class _Factura(FPDF):
             "—": "-", "–": "-",            # em/en dash
             "‘": "'", "’": "'",            # comillas simples
             "“": '"', "”": '"',            # comillas dobles
-            "…": "...", "·": ".",          # ellipsis / punto medio
-            " ": " ", " ": " ",            # espacios especiales
+            "…": "...",                          # ellipsis
+            " ": " ", " ": " ",            # espacios especiales
             "₱": "$",                            # símbolo peso variante
         }
         for orig, remp in reemplazos.items():
@@ -205,26 +218,35 @@ class _Factura(FPDF):
         return super().normalize_text(txt)
 
     def footer(self):
-        self.set_y(-16)
-        self.set_draw_color(*_GRIS_BORDE)
-        self.set_line_width(0.3)
-        self.line(18, self.get_y(), 192, self.get_y())
-        self.ln(1.5)
+        self.set_y(-18)
+        # Barra de marca: segmento violeta + resto dorado, como en la cabecera.
+        self.set_fill_color(*_VIOLETA)
+        self.rect(_MARGEN, self.get_y(), 18, 0.9, style="F")
+        self.set_fill_color(*_ORO)
+        self.rect(_MARGEN + 18, self.get_y(), _CONTENIDO - 18, 0.9, style="F")
+        self.ln(3)
         self.set_font("Helvetica", "", 7)
-        self.set_text_color(*_GRIS_TEXTO)
-        self.cell(
-            0, 5,
-            "Documento equivalente a factura - Art. 615 y 617 E.T. - "
-            "Persona natural no responsable de IVA salvo indicacion contraria.",
-            align="C",
-            new_x=XPos.LMARGIN, new_y=YPos.NEXT,
-        )
+        self.set_text_color(*_SLATE_500)
         self.cell(
             0, 4,
-            f"Pagina {self.page_no()}",
-            align="C",
+            "Documento equivalente a factura - Art. 615 y 617 E.T. - "
+            "Persona natural no responsable de IVA salvo indicación contraria.",
+            align="C", new_x=XPos.LMARGIN, new_y=YPos.NEXT,
         )
-        self.set_text_color(*_NEGRO)
+        self.cell(0, 4, f"Página {self.page_no()}", align="C")
+        self.set_text_color(*_TINTA)
+
+    # ── Piezas visuales reutilizables ────────────────────────────────────────
+
+    def etiqueta(self, texto: str, color=_SLATE_500):
+        """Etiqueta pequeña en mayúsculas con tracking (jerarquía nivel 3)."""
+        self.set_font("Helvetica", "B", 7)
+        self.set_char_spacing(0.7)
+        self.set_text_color(*color)
+        self.cell(self.get_string_width(texto.upper()) + 4, 4, texto.upper(),
+                  new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        self.set_char_spacing(0)
+        self.set_text_color(*_TINTA)
 
 
 def _iniciales(nombre: str) -> str:
@@ -235,6 +257,259 @@ def _iniciales(nombre: str) -> str:
     if len(partes) == 1:
         return partes[0][:2].upper()
     return (partes[0][0] + partes[1][0]).upper()
+
+
+def _cabecera_marca(pdf: _Factura, datos: dict, d: dict) -> None:
+    """Banda superior de identidad: logo, emisor, contacto y «FACTURA N.º»."""
+    pdf.set_fill_color(*_SLATE_900)
+    pdf.rect(0, 0, _ANCHO, 42, style="F")
+    # Barra de acento bicolor bajo la banda (violeta → dorado).
+    pdf.set_fill_color(*_VIOLETA)
+    pdf.rect(0, 42, 64, 1.8, style="F")
+    pdf.set_fill_color(*_ORO)
+    pdf.rect(64, 42, _ANCHO - 64, 1.8, style="F")
+
+    # Chip de iniciales (logo placeholder) en dorado.
+    pdf.set_fill_color(*_ORO)
+    pdf.rect(_MARGEN, 10.5, 16.5, 16.5, style="F", round_corners=True,
+             corner_radius=4)
+    pdf.set_xy(_MARGEN, 10.5)
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.set_text_color(*_SLATE_900)
+    pdf.cell(16.5, 16.5, _iniciales(str(datos["nombre_freelancer"])), align="C")
+
+    # Nombre del emisor + NIT + contacto, junto al chip.
+    pdf.set_xy(37, 10)
+    pdf.set_font("Helvetica", "B", 15)
+    pdf.set_text_color(*_BLANCO)
+    pdf.cell(92, 8, str(datos["nombre_freelancer"])[:34],
+             new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_x(37)
+    pdf.set_font("Helvetica", "", 8.5)
+    pdf.set_text_color(*_ORO)
+    pdf.cell(92, 5, f"NIT/CC {datos['nit_freelancer']}",
+             new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    contacto = " · ".join(
+        str(datos[k]) for k in ("ciudad", "email", "telefono") if datos.get(k)
+    )
+    if contacto:
+        pdf.set_x(37)
+        pdf.set_font("Helvetica", "", 7.5)
+        pdf.set_text_color(*_NUBE)
+        pdf.cell(92, 4.5, contacto[:64])
+
+    # Bloque derecho: «FACTURA», pill con el número y fecha.
+    pdf.set_xy(120, 9)
+    pdf.set_font("Helvetica", "B", 22)
+    pdf.set_text_color(*_BLANCO)
+    pdf.cell(74, 10, "FACTURA", align="R", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    pdf.set_font("Helvetica", "B", 9)
+    num_txt = f"N.º {d['numero']}"
+    w_pill = pdf.get_string_width(num_txt) + 8
+    x_pill = _ANCHO - _MARGEN - w_pill
+    pdf.set_fill_color(*_ORO)
+    pdf.rect(x_pill, 21.5, w_pill, 7, style="F", round_corners=True,
+             corner_radius=3)
+    pdf.set_xy(x_pill, 21.5)
+    pdf.set_text_color(*_SLATE_900)
+    pdf.cell(w_pill, 7, num_txt, align="C")
+
+    pdf.set_xy(120, 30.5)
+    pdf.set_font("Helvetica", "", 8.5)
+    pdf.set_text_color(*_NUBE)
+    pdf.cell(74, 5, f"Fecha de emisión: {d['fecha_str']}", align="R")
+
+    pdf.set_text_color(*_TINTA)
+    pdf.set_y(51)
+
+
+def _tarjetas_info(pdf: _Factura, datos: dict, d: dict) -> None:
+    """Tarjeta «Facturar a» (cliente) + tarjeta resumen del documento."""
+    y0 = pdf.get_y()
+    w_cli, w_res, gap = 106, 66, 6
+    x_cli = _MARGEN
+    x_res = _MARGEN + w_cli + gap
+
+    cliente_lineas = [f"NIT {datos['nit_cliente']}"]
+    if datos.get("ciudad_cliente"):
+        cliente_lineas.append(str(datos["ciudad_cliente"]))
+    # La razón social se envuelve (no se trunca): el nombre legal completo
+    # importa. La altura de ambas tarjetas se calcula con el texto real.
+    pdf.set_font("Helvetica", "B", 11)
+    h_nombre = max(6.5, pdf.multi_cell(w_cli - 12, 6, str(datos["nombre_cliente"]),
+                                       dry_run=True, output="HEIGHT"))
+    h = max(30, 11 + h_nombre + 5 * len(cliente_lineas) + 5)
+
+    # Tarjeta del cliente.
+    pdf.set_fill_color(*_SLATE_100)
+    pdf.rect(x_cli, y0, w_cli, h, style="F", round_corners=True, corner_radius=3)
+    pdf.set_xy(x_cli + 6, y0 + 5)
+    pdf.etiqueta("Facturar a", _ORO)
+    pdf.set_x(x_cli + 6)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.multi_cell(w_cli - 12, 6, str(datos["nombre_cliente"]),
+                   new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_font("Helvetica", "", 8.5)
+    pdf.set_text_color(*_SLATE_700)
+    for linea in cliente_lineas:
+        pdf.set_x(x_cli + 6)
+        pdf.cell(w_cli - 12, 5, linea, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_text_color(*_TINTA)
+
+    # Tarjeta resumen: número, fecha y total, escaneable de un vistazo.
+    pdf.set_fill_color(*_SLATE_100)
+    pdf.rect(x_res, y0, w_res, h, style="F", round_corners=True, corner_radius=3)
+    pdf.set_xy(x_res + 6, y0 + 5)
+    pdf.etiqueta("Resumen", _SLATE_500)
+    pdf.set_x(x_res + 6)
+    pdf.set_font("Helvetica", "", 8.5)
+    pdf.set_text_color(*_SLATE_700)
+    pdf.cell(24, 5, "Documento")
+    pdf.set_font("Helvetica", "B", 8.5)
+    pdf.set_text_color(*_TINTA)
+    pdf.cell(w_res - 36, 5, d["numero"][:18], align="R",
+             new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_x(x_res + 6)
+    pdf.set_font("Helvetica", "", 8.5)
+    pdf.set_text_color(*_SLATE_700)
+    pdf.cell(24, 5, "Fecha")
+    pdf.set_font("Helvetica", "B", 8.5)
+    pdf.set_text_color(*_TINTA)
+    pdf.cell(w_res - 36, 5, d["fecha"].strftime("%d/%m/%Y"), align="R",
+             new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_x(x_res + 6)
+    pdf.set_font("Helvetica", "", 8.5)
+    pdf.set_text_color(*_SLATE_700)
+    pdf.cell(24, 6, "Total")
+    pdf.set_font("Helvetica", "B", 10.5)
+    pdf.set_text_color(*_VERDE)
+    pdf.cell(w_res - 36, 6, _fmt_cop(d["total"]), align="R")
+    pdf.set_text_color(*_TINTA)
+
+    pdf.set_y(y0 + h + 8)
+
+
+def _tabla_conceptos(pdf: _Factura, d: dict) -> None:
+    """Tabla de servicios: cabecera oscura, zebra y montos tabulares."""
+    w_desc, w_val = 126, 52
+
+    pdf.set_fill_color(*_SLATE_900)
+    pdf.set_text_color(*_BLANCO)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_char_spacing(0.5)
+    pdf.cell(w_desc, 9, "   DESCRIPCIÓN DEL SERVICIO", fill=True)
+    pdf.cell(w_val, 9, "VALOR (COP)   ", align="R", fill=True,
+             new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_char_spacing(0)
+    pdf.set_text_color(*_TINTA)
+
+    for i, (desc, valor) in enumerate(d["items"]):
+        y_inicio = pdf.get_y()
+        pdf.set_font("Helvetica", "", 9.5)
+        # Altura real del texto envuelto, para pintar la zebra completa
+        # y mantener la sangría en todas las líneas.
+        alto_texto = pdf.multi_cell(w_desc - 10, 5.5, desc, dry_run=True,
+                                    output="HEIGHT")
+        alto = max(8.5, alto_texto + 3.5)
+        if y_inicio + alto > pdf.page_break_trigger:
+            pdf.add_page()
+            y_inicio = pdf.get_y()
+        if i % 2 == 0:
+            pdf.set_fill_color(*_SLATE_50)
+            pdf.rect(_MARGEN, y_inicio, w_desc + w_val, alto, style="F")
+        pdf.set_xy(_MARGEN + 5, y_inicio + 1.75)
+        pdf.multi_cell(w_desc - 10, 5.5, desc,
+                       new_x=XPos.RIGHT, new_y=YPos.TOP)
+        pdf.set_xy(_MARGEN + w_desc, y_inicio)
+        pdf.set_font("Helvetica", "B", 9.5)
+        pdf.cell(w_val - 5, alto, _fmt_cop(valor), align="R")
+        pdf.set_y(y_inicio + alto)
+
+    # Cierre de tabla con la línea de acento dorada.
+    pdf.set_draw_color(*_ORO)
+    pdf.set_line_width(0.5)
+    pdf.line(_MARGEN, pdf.get_y(), _ANCHO - _MARGEN, pdf.get_y())
+    pdf.ln(5)
+
+
+def _bloque_totales(pdf: _Factura, d: dict) -> float:
+    """Subtotal, retención y caja oscura de TOTAL. Devuelve la Y final."""
+    x_tot = 108
+    w_tot = _ANCHO - _MARGEN - x_tot  # 86 mm
+    w_etq, w_val = 46, w_tot - 46
+
+    pdf.set_xy(x_tot, pdf.get_y())
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(*_SLATE_700)
+    pdf.cell(w_etq, 6.5, "Subtotal", align="R")
+    pdf.set_font("Helvetica", "B", 9.5)
+    pdf.set_text_color(*_TINTA)
+    pdf.cell(w_val, 6.5, _fmt_cop(d["subtotal"]) + "  ", align="R",
+             new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    if d["retencion_valor"] > 0:
+        pdf.set_x(x_tot)
+        pdf.set_font("Helvetica", "", 8.5)
+        pdf.set_text_color(*_SLATE_700)
+        pdf.cell(w_etq, 6.5, f"Retención fuente ({d['retencion_pct'] * 100:.0f}%)",
+                 align="R")
+        pdf.set_font("Helvetica", "B", 9.5)
+        pdf.set_text_color(*_ROJO)
+        pdf.cell(w_val, 6.5, "- " + _fmt_cop(d["retencion_valor"]) + "  ",
+                 align="R", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_text_color(*_TINTA)
+
+    # Caja de TOTAL A PAGAR: slate profundo con la cifra en dorado.
+    pdf.ln(2)
+    y_caja = pdf.get_y()
+    pdf.set_fill_color(*_SLATE_900)
+    pdf.rect(x_tot, y_caja, w_tot, 14, style="F", round_corners=True,
+             corner_radius=3)
+    pdf.set_xy(x_tot + 5, y_caja)
+    pdf.set_font("Helvetica", "B", 8.5)
+    pdf.set_char_spacing(0.5)
+    pdf.set_text_color(*_BLANCO)
+    pdf.cell(40, 14, "TOTAL A PAGAR")
+    pdf.set_char_spacing(0)
+    pdf.set_font("Helvetica", "B", 14)
+    pdf.set_text_color(*_ORO)
+    pdf.set_xy(x_tot, y_caja)
+    pdf.cell(w_tot - 5, 14, _fmt_cop(d["total"]), align="R")
+    pdf.set_text_color(*_TINTA)
+    return y_caja + 14
+
+
+def _bloque_pago(pdf: _Factura, datos: dict, y0: float) -> float:
+    """«Datos para el pago» a la izquierda de los totales. Devuelve Y final."""
+    if not (datos.get("forma_de_pago") or datos.get("banco")):
+        return y0
+
+    x_pago, w_pago = _MARGEN, 86
+    pdf.set_xy(x_pago, y0)
+    pdf.etiqueta("Datos para el pago", _ORO)
+
+    pdf.set_font("Helvetica", "", 8.5)
+    if datos.get("forma_de_pago"):
+        pdf.set_x(x_pago)
+        pdf.set_font("Helvetica", "B", 8.5)
+        pdf.cell(26, 5, "Forma de pago:")
+        pdf.set_font("Helvetica", "", 8.5)
+        pdf.multi_cell(w_pago - 26, 5, str(datos["forma_de_pago"]),
+                       new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    if datos.get("banco"):
+        tipo = datos.get("tipo_cuenta", "Ahorros")
+        cuenta = datos.get("cuenta", "")
+        pdf.set_x(x_pago)
+        pdf.set_text_color(*_SLATE_700)
+        pdf.multi_cell(
+            w_pago, 5,
+            f"{datos['banco']} · {tipo} N.º {cuenta}\n"
+            f"Titular: {datos['nombre_freelancer']} ({datos['nit_freelancer']})",
+            new_x=XPos.LMARGIN, new_y=YPos.NEXT,
+        )
+        pdf.set_text_color(*_TINTA)
+    return pdf.get_y()
 
 
 def generar_factura(datos: dict) -> bytes:
@@ -292,174 +567,23 @@ def generar_factura(datos: dict) -> bytes:
     pdf = _Factura()
     pdf.add_page()
 
-    # ── BANDA SUPERIOR DE MARCA ──────────────────────────────────────────────
-    pdf.set_fill_color(*_FONDO_OSCURO)
-    pdf.rect(0, 0, 210, 34, style="F")
+    _cabecera_marca(pdf, datos, d)
+    _tarjetas_info(pdf, datos, d)
+    _tabla_conceptos(pdf, d)
 
-    # Logo placeholder: cuadro dorado con iniciales del emisor.
-    pdf.set_fill_color(*_DORADO)
-    pdf.rect(18, 9, 16, 16, style="F")
-    pdf.set_xy(18, 9)
-    pdf.set_font("Helvetica", "B", 13)
-    pdf.set_text_color(*_FONDO_OSCURO)
-    pdf.cell(16, 16, _iniciales(str(datos["nombre_freelancer"])), align="C")
+    y_detalle = pdf.get_y()
+    y_fin_totales = _bloque_totales(pdf, d)
+    y_fin_pago = _bloque_pago(pdf, datos, y_detalle)
+    pdf.set_y(max(y_fin_totales, y_fin_pago) + 8)
 
-    # Nombre del emisor junto al logo.
-    pdf.set_xy(38, 11)
-    pdf.set_font("Helvetica", "B", 14)
-    pdf.set_text_color(*_BLANCO)
-    pdf.cell(110, 7, str(datos["nombre_freelancer"])[:38],
-             new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-    pdf.set_x(38)
-    pdf.set_font("Helvetica", "", 8.5)
-    pdf.set_text_color(*_DORADO)
-    pdf.cell(110, 5, f"NIT/CC: {datos['nit_freelancer']}")
-
-    # Bloque "FACTURA" alineado a la derecha de la banda.
-    pdf.set_xy(120, 9)
-    pdf.set_font("Helvetica", "B", 19)
-    pdf.set_text_color(*_BLANCO)
-    pdf.cell(72, 9, "FACTURA", align="R", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-    pdf.set_x(120)
-    pdf.set_font("Helvetica", "", 8.5)
-    pdf.set_text_color(*_GRIS_BORDE)
-    pdf.cell(72, 5, f"N.o  {d['numero']}", align="R",
-             new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-    pdf.set_x(120)
-    pdf.cell(72, 5, f"Fecha:  {d['fecha_str']}", align="R")
-
-    pdf.set_text_color(*_NEGRO)
-    pdf.set_y(42)
-
-    # ── PARTES (EMISOR / CLIENTE) ────────────────────────────────────────────
-    y0 = pdf.get_y()
-    col_w = 84
-    gap = 6
-
-    def _bloque_parte(x: float, titulo: str, color_titulo, lineas: list):
-        pdf.set_xy(x, y0)
-        pdf.set_font("Helvetica", "B", 8)
-        pdf.set_text_color(*color_titulo)
-        pdf.cell(col_w, 5, titulo.upper(), new_x=XPos.LEFT, new_y=YPos.NEXT)
-        pdf.set_text_color(*_NEGRO)
-        for i, (etq, val) in enumerate(lineas):
-            pdf.set_x(x)
-            pdf.set_font("Helvetica", "B", 9)
-            pdf.cell(20, 5.5, etq)
-            pdf.set_font("Helvetica", "", 9)
-            pdf.multi_cell(col_w - 20, 5.5, str(val),
-                           new_x=XPos.LEFT, new_y=YPos.NEXT)
-
-    emisor_lineas = [("Nombre:", str(datos["nombre_freelancer"])),
-                     ("NIT/CC:", str(datos["nit_freelancer"]))]
-    if datos.get("ciudad"):
-        emisor_lineas.append(("Ciudad:", str(datos["ciudad"])))
-    if datos.get("email"):
-        emisor_lineas.append(("Email:", str(datos["email"])))
-    if datos.get("telefono"):
-        emisor_lineas.append(("Tel:", str(datos["telefono"])))
-
-    cliente_lineas = [("Razon:", str(datos["nombre_cliente"])),
-                      ("NIT:", str(datos["nit_cliente"]))]
-    if datos.get("ciudad_cliente"):
-        cliente_lineas.append(("Ciudad:", str(datos["ciudad_cliente"])))
-
-    _bloque_parte(18, "Emisor", _VERDE, emisor_lineas)
-    y_emisor_fin = pdf.get_y()
-    _bloque_parte(18 + col_w + gap, "Facturar a", _DORADO, cliente_lineas)
-    y_cliente_fin = pdf.get_y()
-
-    pdf.set_y(max(y_emisor_fin, y_cliente_fin) + 4)
-
-    # ── TABLA DE SERVICIOS ───────────────────────────────────────────────────
-    pdf.set_fill_color(*_CARD_OSCURO)
-    pdf.set_text_color(*_BLANCO)
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.cell(126, 8, "  DESCRIPCION DEL SERVICIO", fill=True)
-    pdf.cell(48, 8, "VALOR (COP)  ", align="R", fill=True,
-             new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-    pdf.set_text_color(*_NEGRO)
-
-    for i, (desc, valor) in enumerate(d["items"]):
-        fill = i % 2 == 0
-        if fill:
-            pdf.set_fill_color(*_GRIS_CLARO)
-        y_inicio = pdf.get_y()
-        pdf.set_font("Helvetica", "", 9)
-        # multi_cell para descripciones largas; el valor se alinea arriba.
-        x_inicio = pdf.get_x()
-        pdf.multi_cell(126, 7, "  " + desc, fill=fill,
-                       new_x=XPos.RIGHT, new_y=YPos.TOP,
-                       max_line_height=5.5)
-        y_fin = pdf.get_y()
-        alto = max(7, y_fin - y_inicio)
-        pdf.set_xy(x_inicio + 126, y_inicio)
-        pdf.cell(48, alto, _fmt_cop(valor) + "  ", align="R", fill=fill,
-                 new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-
-    # Línea de cierre de tabla.
-    pdf.set_draw_color(*_GRIS_BORDE)
-    pdf.set_line_width(0.3)
-    pdf.line(18, pdf.get_y(), 192, pdf.get_y())
-    pdf.ln(3)
-
-    # ── TOTALES (alineados a la derecha) ─────────────────────────────────────
-    x_tot = 110
-    w_etq, w_val = 50, 32
-
-    def _fila_total(etq: str, val_str: str, color=None, negrita=False, fondo=None):
-        pdf.set_x(x_tot)
-        if fondo:
-            pdf.set_fill_color(*fondo)
-        pdf.set_font("Helvetica", "B" if negrita else "", 9.5 if negrita else 9)
-        pdf.cell(w_etq, 8 if negrita else 6.5, etq, align="R", fill=bool(fondo))
-        if color:
-            pdf.set_text_color(*color)
-        pdf.set_font("Helvetica", "B" if negrita else "", 10.5 if negrita else 9)
-        pdf.cell(w_val, 8 if negrita else 6.5, val_str + " ", align="R",
-                 fill=bool(fondo), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-        pdf.set_text_color(*_NEGRO)
-
-    _fila_total("Subtotal:", _fmt_cop(d["subtotal"]))
-    if d["retencion_valor"] > 0:
-        pct_txt = f"Retencion fuente ({d['retencion_pct'] * 100:.0f}%):"
-        _fila_total(pct_txt, "- " + _fmt_cop(d["retencion_valor"]), color=_ROJO)
-
-    pdf.ln(0.5)
-    _fila_total("TOTAL A PAGAR:", _fmt_cop(d["total"]),
-                color=_VERDE, negrita=True, fondo=(232, 246, 241))
-
-    # ── DATOS DE PAGO / NOTAS ────────────────────────────────────────────────
-    if datos.get("forma_de_pago") or datos.get("banco") or datos.get("notas"):
-        pdf.ln(8)
-        pdf.set_font("Helvetica", "B", 8.5)
-        pdf.set_text_color(*_VERDE)
-        pdf.cell(0, 5, "DATOS PARA EL PAGO", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-        pdf.set_text_color(*_NEGRO)
-        pdf.set_font("Helvetica", "", 9)
-        # Forma de pago en su propia línea, separada de las notas al pie.
-        if datos.get("forma_de_pago"):
-            pdf.set_font("Helvetica", "B", 9)
-            pdf.cell(30, 5.5, "Forma de pago:")
-            pdf.set_font("Helvetica", "", 9)
-            pdf.multi_cell(0, 5.5, str(datos["forma_de_pago"]),
-                           new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-        if datos.get("banco"):
-            tipo = datos.get("tipo_cuenta", "Ahorros")
-            cuenta = datos.get("cuenta", "")
-            pdf.multi_cell(
-                0, 5.5,
-                f"{datos['banco']} - {tipo} N.o {cuenta}\n"
-                f"Titular: {datos['nombre_freelancer']} ({datos['nit_freelancer']})",
-                new_x=XPos.LMARGIN, new_y=YPos.NEXT,
-            )
-        if datos.get("notas"):
-            pdf.ln(1)
-            pdf.set_font("Helvetica", "I", 8.5)
-            pdf.set_text_color(*_GRIS_TEXTO)
-            pdf.multi_cell(0, 5, str(datos["notas"]),
-                           new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            pdf.set_text_color(*_NEGRO)
+    # Notas / condiciones a ancho completo, bajo ambos bloques.
+    if datos.get("notas"):
+        pdf.etiqueta("Condiciones", _SLATE_500)
+        pdf.set_font("Helvetica", "I", 8.5)
+        pdf.set_text_color(*_SLATE_500)
+        pdf.multi_cell(_CONTENIDO, 5, str(datos["notas"]),
+                       new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_text_color(*_TINTA)
 
     return bytes(pdf.output())
 

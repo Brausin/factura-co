@@ -72,3 +72,6 @@ secrets.py
 
 # Herramientas internas de desarrollo
 .claude/
+
+# PDFs de muestra para revisión visual
+muestras/
