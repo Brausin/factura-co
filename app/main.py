@@ -33,7 +33,8 @@ from factura_co.factura_pdf import generar_factura, _desglose_factura
 from factura_co.documento_pdf import generar_pdf as generar_cuenta_cobro
 
 import ui
-from ui import COLORS, card, fila_cards, barra_h, badge, seccion, md
+from ui import (COLORS, card, fila_cards, barra_h, badge, seccion, md,
+                icono, pill_estado, titulo_pagina)
 
 C = COLORS  # alias corto para los f-strings de estilo
 
@@ -49,11 +50,11 @@ ui.apply_styles()
 
 
 TIPOS_SERVICIO = {
-    "honorarios": "💼 Honorarios (consultoría, desarrollo, diseño)",
-    "servicios": "🔧 Servicios generales (técnicos, mantenimiento)",
-    "arrendamiento": "🏠 Arrendamiento",
-    "compras": "📦 Compras de bienes",
-    "transporte": "🚚 Transporte",
+    "honorarios": "Honorarios (consultoría, desarrollo, diseño)",
+    "servicios": "Servicios generales (técnicos, mantenimiento)",
+    "arrendamiento": "Arrendamiento",
+    "compras": "Compras de bienes",
+    "transporte": "Transporte",
 }
 
 UPWORK_TRAMOS = {
@@ -75,12 +76,8 @@ def trm_info_cached() -> dict:
 def trm_badge(info: dict) -> str:
     """Pill de estado de la TRM: ámbar si es estimada, verde si es oficial."""
     if info["es_estimado"]:
-        return ("<span style='background:#7c4a00;color:#F5A623;"
-                "border:1px solid #F5A623;border-radius:20px;padding:2px 10px;"
-                "font-size:11px'>⚠️ Estimado</span>")
-    return ("<span style='background:#003c2a;color:#00C896;"
-            "border:1px solid #00C896;border-radius:20px;padding:2px 10px;"
-            "font-size:11px'>✅ Oficial · datos.gov.co</span>")
+        return pill_estado("Estimado", "alerta")
+    return pill_estado("Oficial · datos.gov.co", "ok")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -90,9 +87,13 @@ def pagina_inicio(trm_info: dict):
     trm = trm_info["trm"]
     md("<div style='font-size:34px;font-weight:700;letter-spacing:-.02em'>"
        "factura&#8209;co</div>"
-       f"<div style='color:{C['muted']};font-size:15px;margin-bottom:6px'>"
+       f"<div style='color:{C['muted']};font-size:15px;margin-bottom:8px'>"
        "Cuánto recibes realmente como freelancer en Colombia — retenciones, "
-       "aportes, comisiones de plataforma y proyección anual.</div>")
+       "aportes, comisiones de plataforma y proyección anual.</div>"
+       f"<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px;"
+       f"color:{C['muted']};font-size:12px'>{icono('shield-check', 15, C['green'])}"
+       "<span>Cálculos con normativa vigente 2026: UVT y retención DIAN, "
+       "SMMLV oficial y TRM de datos.gov.co</span></div>")
 
     smmlv_usd = SMMLV_VIGENTE / trm
     mejor = mejor_plataforma(1000, trm)
@@ -125,18 +126,20 @@ def pagina_inicio(trm_info: dict):
     md(seccion("Herramientas", ""))
     cols = st.columns(3)
     tarjetas = [
-        ("💱 Plataformas", "Comisión real de PayPal, Wise, Payoneer, Upwork y más."),
-        ("🔄 Comparador", "Cuál te deja más COP para un monto en USD."),
-        ("🧮 Calculadora inversa", "Cuánto cobrar para recibir un neto objetivo."),
-        ("📈 Proyección", "Renta anual estimada con Art. 241 ET."),
-        ("🧾 Factura", "Genera un PDF profesional listo para enviar."),
-        ("📊 Datos reales", "Comisiones y tarifas oficiales, TRM en vivo."),
+        ("wallet", "Plataformas", "Comisión real de PayPal, Wise, Payoneer, Upwork y más."),
+        ("repeat", "Comparador", "Cuál te deja más COP para un monto en USD."),
+        ("calculator", "Calculadora inversa", "Cuánto cobrar para recibir un neto objetivo."),
+        ("trending-up", "Proyección", "Renta anual estimada con Art. 241 ET."),
+        ("file-text", "Factura", "Genera un PDF profesional listo para enviar."),
+        ("chart-bar", "Datos reales", "Comisiones y tarifas oficiales, TRM en vivo."),
     ]
-    for i, (titulo, desc) in enumerate(tarjetas):
+    for i, (icn, titulo, desc) in enumerate(tarjetas):
         with cols[i % 3]:
-            md(f"<div style='background:{C['card']};border:1px solid {C['border']};"
-               f"border-radius:12px;padding:16px;margin:6px 0;min-height:96px'>"
-               f"<div style='font-weight:600;font-size:15px'>{titulo}</div>"
+            md(f"<div class='fco-card' style='background:{C['card']};border:1px solid "
+               f"{C['border']};border-radius:12px;padding:16px;margin:6px 0;"
+               f"min-height:96px'>"
+               f"<div style='display:flex;align-items:center;gap:8px;font-weight:600;"
+               f"font-size:15px'>{icono(icn, 18, C['green'])}{titulo}</div>"
                f"<div style='color:{C['muted']};font-size:13px;margin-top:6px'>"
                f"{desc}</div></div>")
 
@@ -145,9 +148,8 @@ def pagina_inicio(trm_info: dict):
 # PÁGINA · PLATAFORMAS
 # ─────────────────────────────────────────────────────────────────────────────
 def pagina_plataformas(trm_info: dict):
-    md("<div style='font-size:26px;font-weight:700'>💱 Plataformas de cobro</div>")
-    md(f"<div style='color:{C['muted']};font-size:14px'>Comisión real y neto en "
-       "pesos para un pago internacional.</div>")
+    titulo_pagina("wallet", "Plataformas de cobro",
+                  "Comisión real y neto en pesos para un pago internacional.")
 
     col1, col2 = st.columns([1, 1])
     with col1:
@@ -193,16 +195,26 @@ def pagina_plataformas(trm_info: dict):
                COLORS["green"], ui.fmt_cop(r["valor_cop"])))
 
     if r["notas"]:
-        st.caption(f"ℹ️ {r['notas']}")
+        st.caption(r["notas"])
+
+    # Resumen listo para copiar y compartir con el cliente
+    with st.expander("Resumen para compartir"):
+        st.code(
+            f"Pago de US$ {valor_usd:,} vía {PLAT_NOMBRES[plat_id]}\n"
+            f"TRM simulada: {ui.fmt_cop(trm)}\n"
+            f"Comisión total: {ui.fmt_usd(r['comision_usd'])} "
+            f"({r['costo_total_pct']:.1f}%)\n"
+            f"Neto a recibir: {ui.fmt_cop(r['valor_cop'])}",
+            language=None,
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PÁGINA · COMPARADOR
 # ─────────────────────────────────────────────────────────────────────────────
 def pagina_comparador(trm_info: dict):
-    md("<div style='font-size:26px;font-weight:700'>🔄 Comparador de plataformas</div>")
-    md(f"<div style='color:{C['muted']};font-size:14px'>Cuál te deja más pesos "
-       "para un mismo pago en dólares.</div>")
+    titulo_pagina("repeat", "Comparador de plataformas",
+                  "Cuál te deja más pesos para un mismo pago en dólares.")
 
     col1, col2 = st.columns([1, 1])
     with col1:
@@ -265,15 +277,21 @@ def pagina_comparador(trm_info: dict):
             "TRM efectiva": st.column_config.NumberColumn(format="$%.2f"),
         },
     )
+    st.download_button(
+        "Exportar comparación (CSV)",
+        data=df.to_csv(index=False).encode("utf-8-sig"),
+        file_name=f"comparacion_plataformas_usd{valor_usd}.csv",
+        mime="text/csv",
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PÁGINA · CALCULADORA INVERSA
 # ─────────────────────────────────────────────────────────────────────────────
 def pagina_calculadora(trm_info: dict):
-    md("<div style='font-size:26px;font-weight:700'>🧮 Calculadora inversa</div>")
-    md(f"<div style='color:{C['muted']};font-size:14px'>¿Cuánto debes cobrar para "
-       "recibir un neto objetivo, después de impuestos y comisiones?</div>")
+    titulo_pagina("calculator", "Calculadora inversa",
+                  "¿Cuánto debes cobrar para recibir un neto objetivo, "
+                  "después de impuestos y comisiones?")
 
     col1, col2 = st.columns([1, 1])
     with col1:
@@ -347,9 +365,9 @@ def pagina_calculadora(trm_info: dict):
 # PÁGINA · PROYECCIÓN
 # ─────────────────────────────────────────────────────────────────────────────
 def pagina_proyeccion(trm_info: dict):
-    md("<div style='font-size:26px;font-weight:700'>📈 Proyección anual</div>")
-    md(f"<div style='color:{C['muted']};font-size:14px'>Tu ingreso real al año con "
-       "retención, aportes e impuesto de renta (Art. 241 ET).</div>")
+    titulo_pagina("trending-up", "Proyección anual",
+                  "Tu ingreso real al año con retención, aportes e impuesto "
+                  "de renta (Art. 241 ET).")
 
     modo = st.radio("Ingreso mensual en", ["COP", "USD (con plataforma)"],
                     horizontal=True)
@@ -421,6 +439,22 @@ def pagina_proyeccion(trm_info: dict):
         st.plotly_chart(fig2, width="stretch",
                         config={"displayModeBar": False})
 
+    # Exportar el desglose anual a CSV
+    df_proy = pd.DataFrame([
+        ("Ingreso bruto anual", proy["ingreso_bruto_anual"]),
+        ("Retenciones anuales", proy["total_retenciones_anual"]),
+        ("Aportes seguridad social", proy["total_aportes_anual"]),
+        ("Impuesto de renta estimado", proy["impuesto_renta_estimado"]),
+        ("Neto disponible anual", proy["neto_anual"]),
+        ("Neto mensual promedio", proy["neto_mensual_promedio"]),
+        ("Ahorro mensual recomendado", proy["ahorro_mensual_recomendado"]),
+    ], columns=["Concepto", "Valor COP"])
+    st.download_button(
+        "Exportar proyección (CSV)",
+        data=df_proy.to_csv(index=False).encode("utf-8-sig"),
+        file_name="proyeccion_anual.csv", mime="text/csv",
+    )
+
     st.caption("Basado en tabla Art. 241 ET, UVT 2026 = $52.374 "
                "(Resolución DIAN 000238 de 2025). No constituye asesoría tributaria.")
 
@@ -429,9 +463,9 @@ def pagina_proyeccion(trm_info: dict):
 # PÁGINA · FACTURA
 # ─────────────────────────────────────────────────────────────────────────────
 def pagina_factura():
-    md("<div style='font-size:26px;font-weight:700'>🧾 Generar factura PDF</div>")
-    md(f"<div style='color:{C['muted']};font-size:14px'>Completa los datos y "
-       "descarga un documento profesional listo para enviar.</div>")
+    titulo_pagina("file-text", "Generar factura PDF",
+                  "Completa los datos y descarga un documento profesional "
+                  "listo para enviar.")
 
     with st.form("form_factura"):
         st.markdown("**Emisor (tú)**")
@@ -474,7 +508,7 @@ def pagina_factura():
             tipo_cuenta = p4.selectbox("Tipo de cuenta", ["Ahorros", "Corriente"])
             notas = st.text_area("Notas al pie", "Pago a 15 días.")
 
-        generar = st.form_submit_button("📄 Generar factura PDF")
+        generar = st.form_submit_button("Generar factura PDF")
 
     # Vista previa del desglose (siempre que haya datos mínimos)
     if valor > 0 and descripcion.strip():
@@ -528,7 +562,7 @@ def pagina_factura():
                 st.success("Factura generada correctamente.")
                 st.balloons()
                 st.download_button(
-                    "⬇️ Descargar PDF", data=pdf_bytes,
+                    "Descargar PDF", data=pdf_bytes,
                     file_name=f"{numero or 'factura'}.pdf", mime="application/pdf",
                 )
             except ValueError as exc:
@@ -539,10 +573,9 @@ def pagina_factura():
 # PÁGINA · CUENTA DE COBRO
 # ─────────────────────────────────────────────────────────────────────────────
 def pagina_cuenta_cobro():
-    md("<div style='font-size:26px;font-weight:700'>📄 Cuenta de cobro</div>")
-    md(f"<div style='color:{C['muted']};font-size:14px'>El documento equivalente "
-       "para personas naturales no obligadas a facturar electrónicamente "
-       "(Resolución DIAN 000042 de 2020).</div>")
+    titulo_pagina("receipt", "Cuenta de cobro",
+                  "El documento equivalente para personas naturales no obligadas "
+                  "a facturar electrónicamente (Resolución DIAN 000042 de 2020).")
 
     with st.form("form_cuenta_cobro"):
         st.markdown("**Cobrado por (tú)**")
@@ -592,7 +625,7 @@ def pagina_cuenta_cobro():
                                        key="cc_tipo")
             cuenta = st.text_input("N.º de cuenta", "", key="cc_cuenta")
 
-        generar = st.form_submit_button("📄 Generar cuenta de cobro")
+        generar = st.form_submit_button("Generar cuenta de cobro")
 
     # Vista previa del desglose (siempre que haya datos mínimos)
     if valor > 0 and descripcion.strip():
@@ -667,7 +700,7 @@ def pagina_cuenta_cobro():
         st.success("Cuenta de cobro generada correctamente.")
         st.balloons()
         st.download_button(
-            "⬇️ Descargar cuenta de cobro", data=pdf_bytes,
+            "Descargar cuenta de cobro", data=pdf_bytes,
             file_name=f"{numero or 'cuenta_cobro'}.pdf", mime="application/pdf",
         )
 
@@ -677,15 +710,16 @@ def pagina_cuenta_cobro():
 # ─────────────────────────────────────────────────────────────────────────────
 def main():
     with st.sidebar:
-        md(f"<div style='font-size:22px;font-weight:700;padding:4px 0 2px'>"
-           f"🧾 factura&#8209;co</div>"
+        md(f"<div style='display:flex;align-items:center;gap:8px;font-size:22px;"
+           f"font-weight:700;padding:4px 0 2px'>{icono('receipt', 21, C['green'])}"
+           f"factura&#8209;co</div>"
            f"<div style='color:{C['muted']};font-size:12px;margin-bottom:14px'>"
            f"Finanzas freelancer · Colombia</div>")
         pagina = st.radio(
             "Navegación",
-            ["🏠 Inicio", "💱 Plataformas", "🔄 Comparador",
-             "🧮 Calculadora", "📈 Proyección", "🧾 Factura",
-             "📄 Cuenta de cobro"],
+            ["Inicio", "Plataformas", "Comparador",
+             "Calculadora", "Proyección", "Factura",
+             "Cuenta de cobro"],
             label_visibility="collapsed",
         )
         st.divider()

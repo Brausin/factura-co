@@ -13,7 +13,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 APP = str(Path(__file__).resolve().parent.parent / "app" / "main.py")
-PAGINA = "📄 Cuenta de cobro"
+PAGINA = "Cuenta de cobro"
 
 
 def _abrir_pagina():
