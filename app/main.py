@@ -80,6 +80,25 @@ def trm_badge(info: dict) -> str:
     return pill_estado("Oficial · datos.gov.co", "ok")
 
 
+def eco_cop(valor: float) -> None:
+    """Eco en vivo del valor tecleado, con separador de miles: $ 4.327.850."""
+    st.caption(f"Valor ingresado: {ui.fmt_cop(valor)}")
+
+
+def eco_usd(valor: float) -> None:
+    """Eco en vivo de un monto en dólares: US$ 1.250,50."""
+    s = f"{valor:,.2f}"
+    s = s.translate(str.maketrans({",": ".", ".": ","}))
+    st.caption(f"Valor ingresado: US$ {s}")
+
+
+def eco_trm(valor: float) -> None:
+    """Eco en vivo de una TRM con decimales: $ 4.183,25 por dólar."""
+    s = f"{valor:,.2f}"
+    s = s.translate(str.maketrans({",": ".", ".": ","}))
+    st.caption(f"TRM simulada: $ {s} por dólar")
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # PÁGINA · INICIO
 # ─────────────────────────────────────────────────────────────────────────────
@@ -153,15 +172,22 @@ def pagina_plataformas(trm_info: dict):
 
     col1, col2 = st.columns([1, 1])
     with col1:
-        valor_usd = st.slider("Monto del cliente (USD)", 50, 10_000, 1_000, 50)
+        valor_usd = st.number_input(
+            "Monto del cliente (USD)", min_value=1.0, max_value=1_000_000.0,
+            value=1_000.0, step=1.0, key="plat_usd",
+            help="Escribe el monto exacto que te paga el cliente.")
+        eco_usd(valor_usd)
     with col2:
         plat_id = st.selectbox("Plataforma", [p["id"] for p in PLATAFORMAS],
                                format_func=lambda x: PLAT_NOMBRES[x])
 
-    trm_def = min(max(int(round(trm_info["trm"])), 3_000), 6_500)
-    trm = float(st.slider("Simular TRM (escenario USD/COP)", 3_000, 6_500,
-                          trm_def, 50,
-                          help="Mueve la TRM para ver cómo cambia tu neto."))
+    trm = float(st.number_input(
+        "Simular TRM (escenario USD/COP)", min_value=2_000.0,
+        max_value=8_000.0, value=float(round(trm_info["trm"], 2)), step=1.0,
+        key="plat_trm",
+        help="Ajusta la TRM para ver cómo cambia tu neto. "
+             "Por defecto, la TRM de hoy."))
+    eco_trm(trm)
 
     kwargs = {}
     if plat_id == "upwork":
@@ -218,11 +244,16 @@ def pagina_comparador(trm_info: dict):
 
     col1, col2 = st.columns([1, 1])
     with col1:
-        valor_usd = st.slider("Monto del cliente (USD)", 50, 10_000, 1_000, 50,
-                              key="cmp_usd")
+        valor_usd = st.number_input(
+            "Monto del cliente (USD)", min_value=1.0, max_value=1_000_000.0,
+            value=1_000.0, step=1.0, key="cmp_usd",
+            help="Escribe el monto exacto que te paga el cliente.")
+        eco_usd(valor_usd)
     with col2:
         trm = st.number_input("TRM USD/COP", 2_000.0, 8_000.0,
-                              float(trm_info["trm"]), 10.0, key="cmp_trm")
+                              float(round(trm_info["trm"], 2)), 1.0,
+                              key="cmp_trm")
+        eco_trm(trm)
 
     tramo = st.selectbox("Historial Upwork", list(UPWORK_TRAMOS),
                          format_func=lambda x: UPWORK_TRAMOS[x], key="cmp_up")
@@ -295,8 +326,11 @@ def pagina_calculadora(trm_info: dict):
 
     col1, col2 = st.columns([1, 1])
     with col1:
-        neto_deseado = st.number_input("Neto que quieres recibir (COP)",
-                                       100_000, 500_000_000, 5_000_000, 100_000)
+        neto_deseado = st.number_input(
+            "Neto que quieres recibir (COP)", min_value=100_000,
+            max_value=500_000_000, value=5_000_000, step=1_000,
+            help="Puedes teclear cualquier valor exacto, p. ej. 4327850.")
+        eco_cop(neto_deseado)
         tipo = st.selectbox("Tipo de servicio", list(TIPOS_SERVICIO),
                             format_func=lambda x: TIPOS_SERVICIO[x])
     with col2:
@@ -313,7 +347,9 @@ def pagina_calculadora(trm_info: dict):
                                    key="inv_plat")
         with cpb:
             trm = st.number_input("TRM USD/COP", 2_000.0, 8_000.0,
-                                  float(trm_info["trm"]), 10.0, key="inv_trm")
+                                  float(round(trm_info["trm"], 2)), 1.0,
+                                  key="inv_trm")
+            eco_trm(trm)
 
     r = calcular_bruto_necesario(
         neto_deseado, tipo, es_declarante, incluir_aportes,
@@ -375,8 +411,11 @@ def pagina_proyeccion(trm_info: dict):
 
     if modo == "COP":
         with col1:
-            ingreso = st.number_input("Ingreso mensual (COP)",
-                                      500_000, 200_000_000, 6_000_000, 100_000)
+            ingreso = st.number_input(
+                "Ingreso mensual (COP)", min_value=500_000,
+                max_value=200_000_000, value=6_000_000, step=1_000,
+                help="Teclea tu ingreso exacto, sin redondear.")
+            eco_cop(ingreso)
             tipo = st.selectbox("Tipo de servicio", list(TIPOS_SERVICIO),
                                format_func=lambda x: TIPOS_SERVICIO[x], key="pry_tipo")
         with col2:
@@ -386,14 +425,19 @@ def pagina_proyeccion(trm_info: dict):
         sub = f"{ui.fmt_cop(ingreso)} / mes · {meses} meses"
     else:
         with col1:
-            ingreso_usd = st.number_input("Ingreso mensual (USD)",
-                                          100, 100_000, 2_000, 100)
+            ingreso_usd = st.number_input(
+                "Ingreso mensual (USD)", min_value=1, max_value=1_000_000,
+                value=2_000, step=1,
+                help="Teclea tu ingreso exacto en dólares.")
+            eco_usd(ingreso_usd)
             plat_id = st.selectbox("Plataforma de cobro",
                                    [p["id"] for p in PLATAFORMAS],
                                    format_func=lambda x: PLAT_NOMBRES[x], key="pry_plat")
         with col2:
             trm = st.number_input("TRM USD/COP", 2_000.0, 8_000.0,
-                                  float(trm_info["trm"]), 10.0, key="pry_trm")
+                                  float(round(trm_info["trm"], 2)), 1.0,
+                                  key="pry_trm")
+            eco_trm(trm)
             es_declarante = st.toggle("Declaro renta", value=True, key="pry_decl2")
             meses = st.slider("Meses a proyectar", 1, 12, 12, key="pry_meses")
         proy = proyeccion_desde_usd(ingreso_usd, trm, plat_id,
@@ -467,48 +511,75 @@ def pagina_factura():
                   "Completa los datos y descarga un documento profesional "
                   "listo para enviar.")
 
-    with st.form("form_factura"):
-        st.markdown("**Emisor (tú)**")
-        e1, e2 = st.columns(2)
-        nombre_f = e1.text_input("Nombre / razón social", "Ana García")
-        nit_f = e2.text_input("NIT o cédula", "52.123.456-7")
-        e3, e4, e5 = st.columns(3)
-        ciudad = e3.text_input("Ciudad", "Bogotá")
-        email = e4.text_input("Email", "ana@ejemplo.co")
-        telefono = e5.text_input("Teléfono", "")
+    # Sin st.form: los campos validan en vivo (el error aparece junto al campo
+    # que falla) y la vista previa de abajo refleja cada cambio al instante.
+    def _req(valor: str, mensaje: str) -> bool:
+        if str(valor).strip():
+            return True
+        st.error(mensaje)
+        return False
 
-        st.markdown("**Cliente**")
-        c1, c2 = st.columns(2)
-        nombre_c = c1.text_input("Nombre del cliente", "Tech Corp SAS")
-        nit_c = c2.text_input("NIT del cliente", "900.123.456-7")
+    valido = True
 
-        st.markdown("**Servicio**")
-        descripcion = st.text_area("Descripción del servicio",
-                                   "Desarrollo de API de pagos — Sprint 3")
-        s1, s2 = st.columns(2)
-        valor = s1.number_input("Valor (COP)", 0, 1_000_000_000, 5_000_000, 50_000)
-        retencion = s2.number_input("Retención en la fuente (%)", 0.0, 20.0, 11.0, 0.5)
+    st.markdown("**Emisor (tú)**")
+    e1, e2 = st.columns(2)
+    with e1:
+        nombre_f = st.text_input("Nombre / razón social", "Ana García")
+        valido &= _req(nombre_f, "Escribe tu nombre o razón social.")
+    with e2:
+        nit_f = st.text_input("NIT o cédula", "52.123.456-7")
+        valido &= _req(nit_f, "Escribe tu NIT o cédula.")
+    e3, e4, e5 = st.columns(3)
+    ciudad = e3.text_input("Ciudad", "Bogotá")
+    email = e4.text_input("Email", "ana@ejemplo.co")
+    telefono = e5.text_input("Teléfono", "")
 
-        st.markdown("**Documento**")
-        d1, d2 = st.columns(2)
-        num_sugerido = (f"FCO-{date.today().year}-"
-                        f"{str(st.session_state.get('factura_count', 1)).zfill(3)}")
-        numero = d1.text_input("N.º de factura", num_sugerido)
-        fecha = d2.date_input("Fecha", date.today())
+    st.markdown("**Cliente**")
+    c1, c2 = st.columns(2)
+    with c1:
+        nombre_c = st.text_input("Nombre del cliente", "Tech Corp SAS")
+        valido &= _req(nombre_c, "Escribe el nombre o razón social del cliente.")
+    with c2:
+        nit_c = st.text_input("NIT del cliente", "900.123.456-7")
+        valido &= _req(nit_c, "Escribe el NIT del cliente.")
 
-        with st.expander("Datos de pago (opcional)"):
-            p1, p2 = st.columns(2)
-            forma_pago = p1.selectbox(
-                "Forma de pago",
-                ["Transferencia bancaria", "Nequi", "Daviplata", "Cripto",
-                 "Efectivo", "Otro"])
-            banco = p2.text_input("Banco", "")
-            p3, p4 = st.columns(2)
-            cuenta = p3.text_input("N.º de cuenta", "")
-            tipo_cuenta = p4.selectbox("Tipo de cuenta", ["Ahorros", "Corriente"])
-            notas = st.text_area("Notas al pie", "Pago a 15 días.")
+    st.markdown("**Servicio**")
+    descripcion = st.text_area("Descripción del servicio",
+                               "Desarrollo de API de pagos — Sprint 3")
+    valido &= _req(descripcion, "Describe el servicio que vas a facturar.")
+    s1, s2 = st.columns(2)
+    with s1:
+        valor = st.number_input(
+            "Valor (COP)", min_value=0, max_value=1_000_000_000,
+            value=5_000_000, step=1_000,
+            help="Teclea el valor exacto, p. ej. 4327850.")
+        if valor <= 0:
+            st.error("El valor de la factura debe ser mayor a $0.")
+            valido = False
+        else:
+            eco_cop(valor)
+    retencion = s2.number_input("Retención en la fuente (%)", 0.0, 20.0, 11.0, 0.5)
 
-        generar = st.form_submit_button("Generar factura PDF")
+    st.markdown("**Documento**")
+    d1, d2 = st.columns(2)
+    num_sugerido = (f"FCO-{date.today().year}-"
+                    f"{str(st.session_state.get('factura_count', 1)).zfill(3)}")
+    numero = d1.text_input("N.º de factura", num_sugerido)
+    fecha = d2.date_input("Fecha", date.today())
+
+    with st.expander("Datos de pago (opcional)"):
+        p1, p2 = st.columns(2)
+        forma_pago = p1.selectbox(
+            "Forma de pago",
+            ["Transferencia bancaria", "Nequi", "Daviplata", "Cripto",
+             "Efectivo", "Otro"])
+        banco = p2.text_input("Banco", "")
+        p3, p4 = st.columns(2)
+        cuenta = p3.text_input("N.º de cuenta", "")
+        tipo_cuenta = p4.selectbox("Tipo de cuenta", ["Ahorros", "Corriente"])
+        notas = st.text_area("Notas al pie", "Pago a 15 días.")
+
+    generar = st.button("Generar factura PDF")
 
     # Vista previa del desglose (siempre que haya datos mínimos)
     if valor > 0 and descripcion.strip():
@@ -531,42 +602,30 @@ def pagina_factura():
         except ValueError as exc:
             st.warning(str(exc))
 
-    if generar:
-        obligatorios = {
-            "Nombre / razón social": nombre_f,
-            "NIT o cédula": nit_f,
-            "Nombre del cliente": nombre_c,
-            "NIT del cliente": nit_c,
-            "Descripción del servicio": descripcion,
+    if generar and valido:
+        datos = {
+            "nombre_freelancer": nombre_f, "nit_freelancer": nit_f,
+            "nombre_cliente": nombre_c, "nit_cliente": nit_c,
+            "descripcion_servicio": descripcion, "valor_cop": valor,
+            "retencion_pct": retencion, "numero_factura": numero,
+            "fecha": fecha, "ciudad": ciudad, "email": email,
+            "telefono": telefono, "banco": banco, "cuenta": cuenta,
+            "tipo_cuenta": tipo_cuenta, "forma_de_pago": forma_pago,
+            "notas": notas.strip(),
         }
-        faltan = [campo for campo, val in obligatorios.items() if not str(val).strip()]
-        if faltan:
-            st.error("Faltan campos obligatorios: " + ", ".join(faltan))
-        elif valor <= 0:
-            st.error("El valor de la factura debe ser mayor a $0.")
-        else:
-            datos = {
-                "nombre_freelancer": nombre_f, "nit_freelancer": nit_f,
-                "nombre_cliente": nombre_c, "nit_cliente": nit_c,
-                "descripcion_servicio": descripcion, "valor_cop": valor,
-                "retencion_pct": retencion, "numero_factura": numero,
-                "fecha": fecha, "ciudad": ciudad, "email": email,
-                "telefono": telefono, "banco": banco, "cuenta": cuenta,
-                "tipo_cuenta": tipo_cuenta, "forma_de_pago": forma_pago,
-                "notas": notas.strip(),
-            }
-            try:
-                pdf_bytes = generar_factura(datos)
-                st.session_state["factura_count"] = (
-                    st.session_state.get("factura_count", 1) + 1)
-                st.success("Factura generada correctamente.")
-                st.balloons()
-                st.download_button(
-                    "Descargar PDF", data=pdf_bytes,
-                    file_name=f"{numero or 'factura'}.pdf", mime="application/pdf",
-                )
-            except ValueError as exc:
-                st.error(f"No se pudo generar la factura: {exc}")
+        try:
+            pdf_bytes = generar_factura(datos)
+            st.session_state["factura_count"] = (
+                st.session_state.get("factura_count", 1) + 1)
+            st.success("Factura generada correctamente.")
+            st.download_button(
+                "Descargar PDF", data=pdf_bytes,
+                file_name=f"{numero or 'factura'}.pdf", mime="application/pdf",
+            )
+        except ValueError as exc:
+            st.error(f"No se pudo generar la factura: {exc}")
+    elif generar and not valido:
+        st.warning("Corrige los campos marcados en rojo antes de generar el PDF.")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -577,55 +636,80 @@ def pagina_cuenta_cobro():
                   "El documento equivalente para personas naturales no obligadas "
                   "a facturar electrónicamente (Resolución DIAN 000042 de 2020).")
 
-    with st.form("form_cuenta_cobro"):
-        st.markdown("**Cobrado por (tú)**")
-        f1, f2 = st.columns(2)
-        nombre_f = f1.text_input("Nombre completo", "Ana García", key="cc_nombre")
-        cedula_f = f2.text_input("Cédula", "52.123.456", key="cc_cedula")
-        f3, f4, f5 = st.columns(3)
-        ciudad_f = f3.text_input("Ciudad", "Bogotá", key="cc_ciudad")
-        email_f = f4.text_input("Email", "ana@ejemplo.co", key="cc_email")
-        telefono_f = f5.text_input("Teléfono", "", key="cc_tel")
+    # Sin st.form: validación en vivo junto al campo y vista previa al instante.
+    def _req(valor: str, mensaje: str) -> bool:
+        if str(valor).strip():
+            return True
+        st.error(mensaje)
+        return False
 
-        st.markdown("**Cobrado a (cliente)**")
-        c1, c2 = st.columns(2)
-        empresa_c = c1.text_input("Razón social", "Tech Corp SAS", key="cc_empresa")
-        nit_c = c2.text_input("NIT", "900.123.456-7", key="cc_nit")
-        c3, c4 = st.columns(2)
-        contacto_c = c3.text_input("Contacto", "", key="cc_contacto")
-        ciudad_c = c4.text_input("Ciudad del cliente", "", key="cc_ciudad_cli")
+    valido = True
 
-        st.markdown("**Servicio**")
-        descripcion = st.text_area("Descripción del servicio",
-                                   "Consultoría en transformación digital — junio",
-                                   key="cc_desc")
-        s1, s2 = st.columns(2)
-        valor = s1.number_input("Valor bruto (COP)", 0, 1_000_000_000,
-                                5_000_000, 50_000, key="cc_valor")
-        retencion_pct = s2.number_input("Retención en la fuente (%)", 0.0, 20.0,
-                                        11.0, 0.5, key="cc_ret")
+    st.markdown("**Cobrado por (tú)**")
+    f1, f2 = st.columns(2)
+    with f1:
+        nombre_f = st.text_input("Nombre completo", "Ana García", key="cc_nombre")
+        valido &= _req(nombre_f, "Escribe tu nombre completo.")
+    with f2:
+        cedula_f = st.text_input("Cédula", "52.123.456", key="cc_cedula")
+        valido &= _req(cedula_f, "Escribe tu cédula.")
+    f3, f4, f5 = st.columns(3)
+    ciudad_f = f3.text_input("Ciudad", "Bogotá", key="cc_ciudad")
+    email_f = f4.text_input("Email", "ana@ejemplo.co", key="cc_email")
+    telefono_f = f5.text_input("Teléfono", "", key="cc_tel")
 
-        st.markdown("**Documento**")
-        d1, d2 = st.columns(2)
-        num_sugerido = (f"CC-{date.today().year}-"
-                        f"{str(st.session_state.get('cc_count', 1)).zfill(3)}")
-        numero = d1.text_input("N.º de documento", num_sugerido, key="cc_num")
-        fecha = d2.date_input("Fecha", date.today(), key="cc_fecha")
+    st.markdown("**Cobrado a (cliente)**")
+    c1, c2 = st.columns(2)
+    with c1:
+        empresa_c = st.text_input("Razón social", "Tech Corp SAS", key="cc_empresa")
+        valido &= _req(empresa_c, "Escribe la razón social del cliente.")
+    with c2:
+        nit_c = st.text_input("NIT", "900.123.456-7", key="cc_nit")
+        valido &= _req(nit_c, "Escribe el NIT del cliente.")
+    c3, c4 = st.columns(2)
+    contacto_c = c3.text_input("Contacto", "", key="cc_contacto")
+    ciudad_c = c4.text_input("Ciudad del cliente", "", key="cc_ciudad_cli")
 
-        incluir_retencion = st.toggle("Aplicar retención en la fuente",
-                                      value=True, key="cc_inc_ret")
-        incluir_aportes = st.toggle(
-            "Incluir aportes a salud y pensión (informativo)",
-            value=False, key="cc_inc_ap")
+    st.markdown("**Servicio**")
+    descripcion = st.text_area("Descripción del servicio",
+                               "Consultoría en transformación digital — junio",
+                               key="cc_desc")
+    valido &= _req(descripcion, "Describe el servicio que vas a cobrar.")
+    s1, s2 = st.columns(2)
+    with s1:
+        valor = st.number_input(
+            "Valor bruto (COP)", min_value=0, max_value=1_000_000_000,
+            value=5_000_000, step=1_000, key="cc_valor",
+            help="Teclea el valor exacto, p. ej. 4327850.")
+        if valor <= 0:
+            st.error("El valor de la cuenta de cobro debe ser mayor a $0.")
+            valido = False
+        else:
+            eco_cop(valor)
+    retencion_pct = s2.number_input("Retención en la fuente (%)", 0.0, 20.0,
+                                    11.0, 0.5, key="cc_ret")
 
-        with st.expander("Datos bancarios (opcional)"):
-            b1, b2 = st.columns(2)
-            banco = b1.text_input("Banco", "", key="cc_banco")
-            tipo_cuenta = b2.selectbox("Tipo de cuenta", ["Ahorros", "Corriente"],
-                                       key="cc_tipo")
-            cuenta = st.text_input("N.º de cuenta", "", key="cc_cuenta")
+    st.markdown("**Documento**")
+    d1, d2 = st.columns(2)
+    num_sugerido = (f"CC-{date.today().year}-"
+                    f"{str(st.session_state.get('cc_count', 1)).zfill(3)}")
+    numero = d1.text_input("N.º de documento", num_sugerido, key="cc_num")
+    fecha = d2.date_input("Fecha", date.today(), key="cc_fecha")
 
-        generar = st.form_submit_button("Generar cuenta de cobro")
+    incluir_retencion = st.toggle("Aplicar retención en la fuente",
+                                  value=True, key="cc_inc_ret")
+    incluir_aportes = st.toggle(
+        "Incluir aportes a salud y pensión (informativo)",
+        value=False, key="cc_inc_ap")
+
+    with st.expander("Datos bancarios (opcional)"):
+        b1, b2 = st.columns(2)
+        banco = b1.text_input("Banco", "", key="cc_banco")
+        tipo_cuenta = b2.selectbox("Tipo de cuenta", ["Ahorros", "Corriente"],
+                                   key="cc_tipo")
+        cuenta = st.text_input("N.º de cuenta", "", key="cc_cuenta")
+
+    generar = st.button("Generar cuenta de cobro")
 
     # Vista previa del desglose (siempre que haya datos mínimos)
     if valor > 0 and descripcion.strip():
@@ -651,22 +735,10 @@ def pagina_cuenta_cobro():
                      badge("mensual", COLORS["gold"]), COLORS["gold"]),
             ]))
 
+    if generar and not valido:
+        st.warning("Corrige los campos marcados en rojo antes de generar el PDF.")
+        return
     if generar:
-        obligatorios = {
-            "Nombre completo": nombre_f,
-            "Cédula": cedula_f,
-            "Razón social": empresa_c,
-            "NIT": nit_c,
-            "Descripción del servicio": descripcion,
-        }
-        faltan = [campo for campo, val in obligatorios.items() if not str(val).strip()]
-        if faltan:
-            st.error("Faltan campos obligatorios: " + ", ".join(faltan))
-            return
-        if valor <= 0:
-            st.error("El valor de la cuenta de cobro debe ser mayor a $0.")
-            return
-
         datos_freelancer = {"nombre": nombre_f, "cedula": cedula_f}
         for clave, val in (("ciudad", ciudad_f), ("email", email_f),
                            ("telefono", telefono_f), ("banco", banco),
@@ -698,7 +770,6 @@ def pagina_cuenta_cobro():
         )
         st.session_state["cc_count"] = st.session_state.get("cc_count", 1) + 1
         st.success("Cuenta de cobro generada correctamente.")
-        st.balloons()
         st.download_button(
             "Descargar cuenta de cobro", data=pdf_bytes,
             file_name=f"{numero or 'cuenta_cobro'}.pdf", mime="application/pdf",
