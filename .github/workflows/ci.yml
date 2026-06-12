@@ -1,38 +1,30 @@
-name: Tests
+name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
-  test:
+  tests:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11"]
-
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
-
-      - name: Configurar Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-
       - name: Instalar dependencias
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Instalar paquete en modo editable
-        run: pip install -e .
-
-      - name: Ejecutar tests con pytest
+          pip install -e ".[pdf,dev]"
+      - name: Ejecutar pruebas
+        run: pytest -q
+      - name: Verificar CLI
         run: |
-          pytest tests/ -v --tb=short
-
-      - name: Verificar ejemplo básico
-        run: |
-          python examples/ejemplo_basico.py
+          factura-co --version
+          factura-co neto 3000000 --json > /dev/null

@@ -7,13 +7,16 @@ Plotly tematizados. La app (`app/main.py`) importa de aquí para mantener una
 estética coherente sin depender de los widgets por defecto.
 
 Sistema de diseño (ui-ux-pro-max · Glassmorphism + paleta "Gold trust
-+ purple tech"):
-    - Fondo slate profundo #0F172A con mesh gradient aurora (violeta/oro/cian)
++ profit green", rev. 2026-06 — ver design-system/factura-co/MASTER.md):
+    - Fondo slate profundo #0F172A con mesh gradient aurora (oro/cian/esmeralda)
       fijo, sutil y sin animación.
     - Tarjetas de vidrio esmerilado: rgba blanca translúcida, backdrop-filter
       blur 14px, borde 1px rgba(255,255,255,.14) y reflejo superior.
-    - Acento primario oro #F59E0B, CTA violeta #8B5CF6, info cian #38BDF8.
-    - Tipografía DM Sans; números siempre con tabular-nums.
+    - Acento primario oro #F59E0B; CTA esmeralda #10B981 (semántica de dinero;
+      la skill marca los gradientes morados "AI" como anti-patrón fintech);
+      info cian #38BDF8.
+    - Tipografía DM Sans; números siempre con tabular-nums; separadores es-CO
+      (punto de miles) también dentro de los gráficos Plotly.
     - Iconos SVG inline (trazo Lucide), nunca emojis como iconos.
     - Hover por borde/sombra sin layout shift (150–250 ms), focus visible,
       prefers-reduced-motion respetado, cursor pointer en lo clickeable.
@@ -25,7 +28,7 @@ from __future__ import annotations
 import streamlit as st
 import plotly.graph_objects as go
 
-# ── Paleta de marca (Glassmorphism · Gold trust + purple tech) ───────────────
+# ── Paleta de marca (Glassmorphism · Gold trust + profit green) ──────────────
 COLORS = {
     "bg": "#0F172A",          # slate profundo
     "card": "rgba(255,255,255,0.055)",   # vidrio esmerilado
@@ -34,7 +37,8 @@ COLORS = {
     "border": "rgba(255,255,255,0.14)",
     "gold": "#F59E0B",        # primario / mejor opción / neto
     "amber": "#FBBF24",       # advertencias / costos
-    "violet": "#8B5CF6",      # CTA / secundario
+    "cta": "#10B981",         # CTA esmeralda (acciones, foco de inputs)
+    "violet": "#8B5CF6",      # tono de apoyo (solo mesh de fondo, nunca CTA)
     "sky": "#38BDF8",         # informativo
     "red": "#F87171",         # negativo / retenciones
     "ok": "#34D399",          # estado correcto (semántico)
@@ -131,17 +135,17 @@ def apply_styles(C: dict = COLORS) -> None:
     #MainMenu,footer,header {{visibility:hidden}}
     .block-container {{padding-top:1.3rem;padding-bottom:3rem;max-width:1180px}}
 
-    /* Fondo: slate profundo con mesh gradient aurora fijo */
+    /* Fondo: slate profundo con mesh gradient aurora fijo (sin morado-CTA) */
     .stApp {{
         background:
-            radial-gradient(58% 42% at 12% 0%, {_rgba('#8B5CF6', .17)}, transparent 70%),
+            radial-gradient(58% 42% at 12% 0%, {_rgba('#8B5CF6', .10)}, transparent 70%),
             radial-gradient(45% 38% at 90% 8%, {_rgba('#F59E0B', .13)}, transparent 70%),
-            radial-gradient(70% 55% at 50% 110%, {_rgba('#38BDF8', .10)}, transparent 70%),
+            radial-gradient(70% 55% at 50% 110%, {_rgba('#10B981', .10)}, transparent 70%),
             {C['bg']} !important;
         background-attachment: fixed !important;
     }}
     h1,h2,h3,h4,p,span,label,div {{color:{C['text']}}}
-    ::selection {{background:{_rgba('#8B5CF6', .45)}}}
+    ::selection {{background:{_rgba('#10B981', .40)}}}
     ::-webkit-scrollbar {{width:10px;height:10px}}
     ::-webkit-scrollbar-track {{background:transparent}}
     ::-webkit-scrollbar-thumb {{background:rgba(165,180,205,.25);border-radius:6px}}
@@ -155,37 +159,38 @@ def apply_styles(C: dict = COLORS) -> None:
         transition:border-color 180ms ease,box-shadow 180ms ease!important}}
     .stTextInput input:focus,.stNumberInput input:focus,
     .stDateInput input:focus,.stTextArea textarea:focus {{
-        border-color:{C['violet']}!important;
-        box-shadow:0 0 0 2px {_rgba('#8B5CF6', .35)}!important}}
+        border-color:{C['cta']}!important;
+        box-shadow:0 0 0 2px {_rgba('#10B981', .30)}!important}}
     .stNumberInput button {{
         background:transparent!important;color:{C['muted']}!important;
         cursor:pointer!important}}
+    .stNumberInput button:hover {{color:{C['text']}!important}}
     div[data-baseweb="select"]>div {{
         background:{C['input']}!important;border:1px solid {C['border']}!important;
         border-radius:10px!important;color:{C['text']}!important;
         cursor:pointer!important;
         transition:border-color 180ms ease!important}}
-    div[data-baseweb="select"]>div:hover {{border-color:{_rgba('#8B5CF6', .55)}!important}}
+    div[data-baseweb="select"]>div:hover {{border-color:{_rgba('#10B981', .55)}!important}}
     ul[data-testid="stSelectboxVirtualDropdown"] {{
         background:#1B2542!important;border:1px solid {C['border']}!important}}
     li[role="option"] {{cursor:pointer!important}}
 
-    /* Botones: CTA violeta con glow */
+    /* Botones: CTA esmeralda con glow (anti-patrón fintech: nada de morado) */
     .stButton>button,.stDownloadButton>button,.stFormSubmitButton>button {{
-        background:linear-gradient(135deg,{C['violet']},#7C3AED)!important;
-        color:#FFFFFF!important;border:1px solid {_rgba('#8B5CF6', .5)}!important;
-        border-radius:10px!important;font-weight:600!important;
+        background:linear-gradient(135deg,{C['cta']},#059669)!important;
+        color:#04221A!important;border:1px solid {_rgba('#10B981', .5)}!important;
+        border-radius:10px!important;font-weight:700!important;
         padding:.55rem 1.3rem!important;cursor:pointer!important;
         transition:box-shadow 200ms ease,filter 200ms ease!important}}
     .stButton>button:hover,.stDownloadButton>button:hover,
     .stFormSubmitButton>button:hover {{
-        filter:brightness(1.12)!important;
-        box-shadow:0 6px 24px {_rgba('#8B5CF6', .45)}!important}}
+        filter:brightness(1.10)!important;
+        box-shadow:0 6px 24px {_rgba('#10B981', .40)}!important}}
     .stButton>button:focus-visible,.stDownloadButton>button:focus-visible,
     .stFormSubmitButton>button:focus-visible {{
         outline:2px solid {C['gold']}!important;outline-offset:2px!important}}
 
-    /* Toggles y radios con acento violeta */
+    /* Toggles y radios con acento esmeralda */
     .stCheckbox label,.stRadio label,.stToggle label {{cursor:pointer!important}}
     div[data-testid="stToggle"] label {{cursor:pointer!important}}
     .stTabs [aria-selected="true"] {{
@@ -199,9 +204,9 @@ def apply_styles(C: dict = COLORS) -> None:
         border-radius:20px;padding:4px 14px!important;cursor:pointer!important;
         transition:border-color 180ms ease,background 180ms ease!important}}
     section[data-testid="stMain"] .stRadio label:hover {{
-        border-color:{_rgba('#8B5CF6', .6)}}}
+        border-color:{_rgba('#10B981', .6)}}}
     section[data-testid="stMain"] .stRadio label:has(input:checked) {{
-        background:{_rgba('#8B5CF6', .22)};border-color:{C['violet']}}}
+        background:{_rgba('#10B981', .20)};border-color:{C['cta']}}}
     section[data-testid="stMain"] .stRadio label:has(input:focus-visible) {{
         outline:2px solid {C['gold']};outline-offset:2px}}
     section[data-testid="stMain"] .stRadio label>div:first-child {{display:none!important}}
@@ -218,7 +223,7 @@ def apply_styles(C: dict = COLORS) -> None:
         border:1px solid transparent!important;
         transition:background 160ms ease,color 160ms ease,border-color 160ms ease!important}}
     div[data-testid="stSidebar"] .stRadio label:hover {{
-        background:{_rgba('#8B5CF6', .12)}!important;color:{C['text']}!important}}
+        background:{_rgba('#10B981', .10)}!important;color:{C['text']}!important}}
     div[data-testid="stSidebar"] .stRadio label:has(input:checked) {{
         background:{_rgba('#F59E0B', .14)}!important;color:{C['text']}!important;
         border-color:{_rgba('#F59E0B', .4)}!important;
@@ -229,7 +234,7 @@ def apply_styles(C: dict = COLORS) -> None:
         outline:2px solid {C['gold']}!important;outline-offset:1px!important}}
     div[data-testid="stSidebar"] .stRadio label>div:first-child {{display:none!important}}
 
-    /* Expanders y tablas de vidrio */
+    /* Expanders, código y tablas de vidrio */
     div[data-testid="stExpander"] {{
         background:{C['card']}!important;border:1px solid {C['border']}!important;
         border-radius:14px!important;
@@ -242,10 +247,24 @@ def apply_styles(C: dict = COLORS) -> None:
     div[data-testid="stExpander"] summary:focus-visible {{
         outline:2px solid {C['gold']}!important;outline-offset:2px!important}}
     .stDataFrame {{border:1px solid {C['border']}!important;border-radius:14px!important}}
+    .stCode,div[data-testid="stCode"] pre,pre {{
+        background:{_rgba('#0B1226', .85)}!important;
+        border:1px solid {C['border']}!important;border-radius:12px!important}}
+    pre code,code {{color:{C['text']}!important;
+        font-family:'DM Mono','Cascadia Code',monospace!important;
+        font-variant-numeric:tabular-nums}}
     hr {{border-color:{C['border']}!important}}
     .stCaption,.stCaption p,div[data-testid="stCaptionContainer"] p {{
         color:{C['muted']}!important}}
-    .stAlert {{border-radius:12px!important}}
+    .stAlert {{background:{C['card']}!important;
+        border:1px solid {C['border']}!important;border-radius:12px!important;
+        backdrop-filter:blur(10px)!important}}
+    .stAlert p {{color:{C['text']}!important}}
+
+    /* Slider: valor con números tabulares */
+    .stSlider [data-testid="stSliderThumbValue"] {{
+        font-variant-numeric:tabular-nums;color:{C['cta']}!important}}
+    .stSlider [data-testid="stTickBar"] div {{color:{C['muted']}!important}}
 
     /* Tarjeta de vidrio reutilizable */
     .fco-card {{
@@ -256,7 +275,7 @@ def apply_styles(C: dict = COLORS) -> None:
         transition:border-color 200ms ease,box-shadow 200ms ease}}
     .fco-card:hover {{
         border-color:rgba(255,255,255,.30);
-        box-shadow:0 12px 40px rgba(2,6,23,.5),0 0 24px {_rgba('#8B5CF6', .12)},
+        box-shadow:0 12px 40px rgba(2,6,23,.5),0 0 24px {_rgba('#10B981', .10)},
                    inset 0 1px 0 rgba(255,255,255,.09)}}
 
     .fco-num {{font-variant-numeric:tabular-nums}}
@@ -349,7 +368,7 @@ def seccion(titulo: str, subtitulo: str = "") -> str:
     return (f"<div style='margin:26px 0 14px'>"
             f"<div style='display:flex;align-items:center;gap:10px'>"
             f"<div style='width:4px;height:18px;border-radius:2px;"
-            f"background:linear-gradient(180deg,{COLORS['gold']},{COLORS['violet']})'>"
+            f"background:linear-gradient(180deg,{COLORS['gold']},{COLORS['cta']})'>"
             f"</div>"
             f"<div style='color:{COLORS['text']};font-size:18px;font-weight:700'>"
             f"{titulo}</div></div>{sub}</div>")
@@ -380,8 +399,9 @@ def _base_layout(fig: go.Figure, titulo: str = "", height: int = 350) -> go.Figu
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         title=dict(text=titulo, font=dict(size=14, color=COLORS["text"],
                                           family="DM Sans")),
-        margin=dict(l=0, r=70, t=40 if titulo else 10, b=0),
+        margin=dict(l=0, r=80, t=40 if titulo else 10, b=0),
         height=height, font=dict(family="DM Sans", color=COLORS["muted"]),
+        separators=",.",  # es-CO: coma decimal, punto de miles
         hoverlabel=dict(bgcolor="#1B2542", bordercolor="rgba(255,255,255,.2)",
                         font=dict(family="DM Sans", color=COLORS["text"])),
         showlegend=False,
@@ -400,7 +420,8 @@ def plotly_barras_h(labels, valores, titulo: str = "",
         x=list(valores), y=list(labels), orientation="h",
         marker=dict(color=colores, line=dict(width=0)),
         hovertemplate=f"<b>%{{y}}</b><br>%{{x:{fmt}}}<extra></extra>",
-        text=[f"{v:,.0f}" for v in valores], textposition="outside",
+        text=[fmt_cop(v) for v in valores], textposition="outside",
+        cliponaxis=False,
         textfont=dict(color=COLORS["muted"], size=11),
     ))
     _base_layout(fig, titulo, height=max(260, 46 * n + 60))
@@ -413,7 +434,7 @@ def plotly_barras_h(labels, valores, titulo: str = "",
     return fig
 
 
-def plotly_area(x, y, titulo: str = "", color: str = COLORS["violet"],
+def plotly_area(x, y, titulo: str = "", color: str = COLORS["cta"],
                 fmt: str = "$,.0f", nombre: str = "") -> go.Figure:
     """Área acumulada (p. ej. ingreso neto anual mes a mes)."""
     fig = go.Figure(go.Scatter(
@@ -444,9 +465,9 @@ def plotly_donut(labels, valores, titulo: str = "",
                                            color=COLORS["bg"]),
         hovertemplate="<b>%{label}</b><br>%{value:$,.0f} (%{percent})<extra></extra>",
     ))
-    _base_layout(fig, titulo, height=320)
-    fig.update_layout(margin=dict(l=0, r=0, t=40 if titulo else 10, b=0),
+    _base_layout(fig, titulo, height=340)
+    fig.update_layout(margin=dict(l=0, r=0, t=40 if titulo else 10, b=10),
                       showlegend=True,
                       legend=dict(font=dict(color=COLORS["muted"], size=11),
-                                  orientation="h", y=-0.05))
+                                  orientation="h", y=-0.12))
     return fig

@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="factura-co",
-    version="0.2.0",
+    version="0.3.0",
     author="Brausin",
     author_email="juansvargasb@gmail.com",
     description="Calculadora de retenciones, aportes y generador de documentos de cobro para freelancers colombianos",
@@ -17,6 +17,9 @@ setup(
     },
     classifiers=[
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Natural Language :: Spanish",
@@ -25,7 +28,7 @@ setup(
     ],
     package_dir={"": "src"},
     packages=find_packages(where="src"),
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     install_requires=[
         "tabulate>=0.9.0",
     ],
@@ -35,7 +38,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "factura-co=factura_co.calculadora:main",
+            "factura-co=factura_co.cli:main",
         ],
     },
 )

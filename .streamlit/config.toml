@@ -1,0 +1,12 @@
+# Tema base (design system "Glassmorphism · Gold trust + profit green").
+# Alinea los widgets nativos (toggle, slider, radio, alertas, dataframes,
+# date picker) con el tema oscuro de la app.
+[theme]
+base = "dark"
+primaryColor = "#10B981"
+backgroundColor = "#0F172A"
+secondaryBackgroundColor = "#16213D"
+textColor = "#F8FAFC"
+
+[browser]
+gatherUsageStats = false

@@ -2,7 +2,7 @@
 main.py — factura-co · Calculadora financiera para freelancers colombianos.
 
 Aplicación Streamlit con estética "Glassmorphism fintech" (ver app/ui.py):
-mesh aurora sobre slate profundo, tarjetas de vidrio, acentos oro/violeta y
+mesh aurora sobre slate profundo, tarjetas de vidrio, acentos oro/esmeralda y
 gráficos Plotly tematizados. Reúne todas las herramientas del paquete
 factura_co en una sola interfaz:
 
@@ -67,6 +67,17 @@ UPWORK_TRAMOS = {
 PLATAFORMAS = listar_plataformas()
 PLAT_NOMBRES = {p["id"]: p["nombre"] for p in PLATAFORMAS}
 
+TRM_MIN, TRM_MAX = 2_000.0, 8_000.0
+
+
+def _trm_default(trm: float) -> float:
+    """TRM por defecto acotada al rango del input.
+
+    Si la TRM en vivo quedara fuera de [TRM_MIN, TRM_MAX], un default sin
+    acotar haría crashear el number_input (StreamlitAPIException).
+    """
+    return float(min(max(round(trm, 2), TRM_MIN), TRM_MAX))
+
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def trm_info_cached() -> dict:
@@ -113,7 +124,7 @@ def pagina_inicio(trm_info: dict):
     trm = trm_info["trm"]
     md(f"<div style='font-size:38px;font-weight:800;letter-spacing:-.02em;"
        f"background:linear-gradient(92deg,{C['text']} 30%,{C['gold']} 70%,"
-       f"{C['violet']});-webkit-background-clip:text;background-clip:text;"
+       f"{C['cta']});-webkit-background-clip:text;background-clip:text;"
        f"-webkit-text-fill-color:transparent'>factura&#8209;co</div>"
        f"<div style='color:{C['muted']};font-size:15px;margin-bottom:10px'>"
        "Cuánto recibes realmente como freelancer en Colombia — retenciones, "
@@ -123,14 +134,19 @@ def pagina_inicio(trm_info: dict):
        "<span>Cálculos con normativa vigente 2026: UVT y retención DIAN, "
        "SMMLV oficial y TRM de datos.gov.co</span></div>")
 
-    smmlv_usd = SMMLV_VIGENTE / trm
-    mejor = mejor_plataforma(1000, trm)
+    smmlv_usd = SMMLV_VIGENTE / trm if trm else 0.0
 
     md(seccion("Indicadores de hoy", trm_info["fuente"]))
+    try:
+        mejor = mejor_plataforma(1000, trm)
+        mejor_card = card("Mejor plataforma · US$1.000", mejor["plataforma"],
+                          f"Neto {ui.fmt_cop(mejor['valor_cop'])}", COLORS["gold"])
+    except Exception:
+        mejor_card = card("Mejor plataforma · US$1.000", "—",
+                          "sin datos de comisiones", COLORS["amber"])
     md(fila_cards([
         card("TRM USD/COP", ui.fmt_cop(trm), trm_badge(trm_info), COLORS["sky"]),
-        card("Mejor plataforma · US$1.000", mejor["plataforma"],
-             f"Neto {ui.fmt_cop(mejor['valor_cop'])}", COLORS["gold"]),
+        mejor_card,
         card("SMMLV en dólares", ui.fmt_usd(smmlv_usd),
              f"{ui.fmt_cop(SMMLV_VIGENTE)} / mes (2026)", COLORS["amber"]),
     ]))
@@ -142,14 +158,18 @@ def pagina_inicio(trm_info: dict):
        f"{trm_badge(trm_info)}</div>")
 
     # Top plataformas para una referencia de US$1.000
-    comp = comparar_plataformas(1000, trm)
-    md(seccion("Recibir US$1.000 hoy", "Neto en COP según plataforma de cobro"))
-    fig = ui.plotly_barras_h(
-        [r["plataforma"] for r in comp],
-        [r["valor_cop"] for r in comp],
-        color=COLORS["gold"], fmt="$,.0f",
-    )
-    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+    try:
+        comp = comparar_plataformas(1000, trm)
+    except Exception:
+        comp = []
+    if comp:
+        md(seccion("Recibir US$1.000 hoy", "Neto en COP según plataforma de cobro"))
+        fig = ui.plotly_barras_h(
+            [r["plataforma"] for r in comp],
+            [r["valor_cop"] for r in comp],
+            color=COLORS["gold"], fmt="$,.0f",
+        )
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
     md(seccion("Herramientas", ""))
     cols = st.columns(3)
@@ -190,8 +210,8 @@ def pagina_plataformas(trm_info: dict):
                                format_func=lambda x: PLAT_NOMBRES[x])
 
     trm = float(st.number_input(
-        "Simular TRM (escenario USD/COP)", min_value=2_000.0,
-        max_value=8_000.0, value=float(round(trm_info["trm"], 2)), step=1.0,
+        "Simular TRM (escenario USD/COP)", min_value=TRM_MIN,
+        max_value=TRM_MAX, value=_trm_default(trm_info["trm"]), step=1.0,
         key="plat_trm",
         help="Ajusta la TRM para ver cómo cambia tu neto. "
              "Por defecto, la TRM de hoy."))
@@ -203,7 +223,11 @@ def pagina_plataformas(trm_info: dict):
                              list(UPWORK_TRAMOS), format_func=lambda x: UPWORK_TRAMOS[x])
         kwargs["tipo_upwork"] = tramo
 
-    r = calcular_neto_plataforma(valor_usd, plat_id, trm, **kwargs)
+    try:
+        r = calcular_neto_plataforma(valor_usd, plat_id, trm, **kwargs)
+    except (ValueError, KeyError) as exc:
+        st.error(f"No fue posible calcular el neto para esta plataforma: {exc}")
+        return
 
     bruto_cop = valor_usd * trm
     md(seccion("Resultado", r["descripcion"]))
@@ -234,7 +258,7 @@ def pagina_plataformas(trm_info: dict):
     # Resumen listo para copiar y compartir con el cliente
     with st.expander("Resumen para compartir"):
         st.code(
-            f"Pago de US$ {valor_usd:,} vía {PLAT_NOMBRES[plat_id]}\n"
+            f"Pago de {ui.fmt_usd(valor_usd)} vía {PLAT_NOMBRES[plat_id]}\n"
             f"TRM simulada: {ui.fmt_cop(trm)}\n"
             f"Comisión total: {ui.fmt_usd(r['comision_usd'])} "
             f"({r['costo_total_pct']:.1f}%)\n"
@@ -258,8 +282,8 @@ def pagina_comparador(trm_info: dict):
             help="Escribe el monto exacto que te paga el cliente.")
         eco_usd(valor_usd)
     with col2:
-        trm = st.number_input("TRM USD/COP", 2_000.0, 8_000.0,
-                              float(round(trm_info["trm"], 2)), 1.0,
+        trm = st.number_input("TRM USD/COP", TRM_MIN, TRM_MAX,
+                              _trm_default(trm_info["trm"]), 1.0,
                               key="cmp_trm")
         eco_trm(trm)
 
@@ -267,6 +291,10 @@ def pagina_comparador(trm_info: dict):
                          format_func=lambda x: UPWORK_TRAMOS[x], key="cmp_up")
 
     comp = comparar_plataformas(valor_usd, trm, tramo)
+    if not comp:
+        st.error("No hay plataformas configuradas para comparar. "
+                 "Revisa los datos de `factura_co.plataformas`.")
+        return
     mejor, peor = comp[0], comp[-1]
     ahorro = mejor["valor_cop"] - peor["valor_cop"]
 
@@ -281,7 +309,8 @@ def pagina_comparador(trm_info: dict):
     ]))
 
     # Gráfico Plotly de barras horizontales
-    md(seccion("Neto por plataforma", f"Para US$ {valor_usd:,} a TRM {ui.fmt_cop(trm)}"))
+    md(seccion("Neto por plataforma",
+               f"Para {ui.fmt_usd(valor_usd)} a TRM {ui.fmt_cop(trm)}"))
     fig = ui.plotly_barras_h(
         [r["plataforma"] for r in comp],
         [r["valor_cop"] for r in comp],
@@ -319,7 +348,7 @@ def pagina_comparador(trm_info: dict):
     st.download_button(
         "Exportar comparación (CSV)",
         data=df.to_csv(index=False).encode("utf-8-sig"),
-        file_name=f"comparacion_plataformas_usd{valor_usd}.csv",
+        file_name=f"comparacion_plataformas_usd{valor_usd:.0f}.csv",
         mime="text/csv",
     )
 
@@ -354,15 +383,19 @@ def pagina_calculadora(trm_info: dict):
                                    format_func=lambda x: PLAT_NOMBRES[x],
                                    key="inv_plat")
         with cpb:
-            trm = st.number_input("TRM USD/COP", 2_000.0, 8_000.0,
-                                  float(round(trm_info["trm"], 2)), 1.0,
+            trm = st.number_input("TRM USD/COP", TRM_MIN, TRM_MAX,
+                                  _trm_default(trm_info["trm"]), 1.0,
                                   key="inv_trm")
             eco_trm(trm)
 
-    r = calcular_bruto_necesario(
-        neto_deseado, tipo, es_declarante, incluir_aportes,
-        plataforma=plat_id, trm=trm,
-    )
+    try:
+        r = calcular_bruto_necesario(
+            neto_deseado, tipo, es_declarante, incluir_aportes,
+            plataforma=plat_id, trm=trm,
+        )
+    except ValueError as exc:
+        st.error(f"No fue posible calcular el bruto necesario: {exc}")
+        return
 
     md(seccion("Lo que debes facturar", ""))
     tarjetas = [
@@ -428,7 +461,7 @@ def pagina_proyeccion(trm_info: dict):
                                format_func=lambda x: TIPOS_SERVICIO[x], key="pry_tipo")
         with col2:
             es_declarante = st.toggle("Declaro renta", value=True, key="pry_decl")
-            meses = st.slider("Meses a proyectar", 1, 12, 12)
+            meses = st.slider("Meses a proyectar", 1, 12, 12, key="pry_meses_cop")
         proy = proyeccion_anual(ingreso, tipo, es_declarante, meses=meses)
         sub = f"{ui.fmt_cop(ingreso)} / mes · {meses} meses"
     else:
@@ -442,15 +475,15 @@ def pagina_proyeccion(trm_info: dict):
                                    [p["id"] for p in PLATAFORMAS],
                                    format_func=lambda x: PLAT_NOMBRES[x], key="pry_plat")
         with col2:
-            trm = st.number_input("TRM USD/COP", 2_000.0, 8_000.0,
-                                  float(round(trm_info["trm"], 2)), 1.0,
+            trm = st.number_input("TRM USD/COP", TRM_MIN, TRM_MAX,
+                                  _trm_default(trm_info["trm"]), 1.0,
                                   key="pry_trm")
             eco_trm(trm)
             es_declarante = st.toggle("Declaro renta", value=True, key="pry_decl2")
             meses = st.slider("Meses a proyectar", 1, 12, 12, key="pry_meses")
         proy = proyeccion_desde_usd(ingreso_usd, trm, plat_id,
                                     es_declarante=es_declarante, meses=meses)
-        sub = (f"US$ {ingreso_usd:,} / mes · {PLAT_NOMBRES[plat_id]} · "
+        sub = (f"{ui.fmt_usd(ingreso_usd)} / mes · {PLAT_NOMBRES[plat_id]} · "
                f"{meses} meses")
 
     md(seccion("Resumen anual", sub))
@@ -622,7 +655,8 @@ def pagina_factura():
             "notas": notas.strip(),
         }
         try:
-            pdf_bytes = generar_factura(datos)
+            with st.spinner("Generando el PDF de la factura..."):
+                pdf_bytes = generar_factura(datos)
             st.session_state["factura_count"] = (
                 st.session_state.get("factura_count", 1) + 1)
             st.success("Factura generada correctamente.")
@@ -765,17 +799,22 @@ def pagina_cuenta_cobro():
                           aporte_salud=ap["aporte_salud"],
                           aporte_pension=ap["aporte_pension"])
 
-        pdf_bytes = generar_cuenta_cobro(
-            datos_freelancer=datos_freelancer,
-            datos_cliente=datos_cliente,
-            valor=valor,
-            descripcion=descripcion,
-            numero=numero or None,
-            fecha=fecha,
-            incluir_retencion=incluir_retencion,
-            tarifa_retencion=retencion_pct / 100.0,
-            **kwargs,
-        )
+        try:
+            with st.spinner("Generando la cuenta de cobro..."):
+                pdf_bytes = generar_cuenta_cobro(
+                    datos_freelancer=datos_freelancer,
+                    datos_cliente=datos_cliente,
+                    valor=valor,
+                    descripcion=descripcion,
+                    numero=numero or None,
+                    fecha=fecha,
+                    incluir_retencion=incluir_retencion,
+                    tarifa_retencion=retencion_pct / 100.0,
+                    **kwargs,
+                )
+        except ValueError as exc:
+            st.error(f"No se pudo generar la cuenta de cobro: {exc}")
+            return
         st.session_state["cc_count"] = st.session_state.get("cc_count", 1) + 1
         st.success("Cuenta de cobro generada correctamente.")
         st.download_button(

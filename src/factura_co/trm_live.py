@@ -17,8 +17,8 @@ import os
 import urllib.request
 
 # Valor de respaldo — se actualiza con GitHub Actions
-_TRM_FALLBACK = 4_150.0
-_TRM_FALLBACK_FECHA = "2025-01-15"
+_TRM_FALLBACK = 4_340.0
+_TRM_FALLBACK_FECHA = "2026-06-01"
 
 
 def _fetch_trm_datos_gov() -> float | None:
