@@ -1,20 +1,20 @@
 {
-  "fecha": "2026-06-10T00:00:00Z",
-  "ultimo_commit": "3f5b727",
+  "fecha": "2026-06-20T00:00:00Z",
+  "ultimo_commit": "cf0562b",
   "modulos_completados": [
     "Rediseño total de PDFs (factura_pdf.py y documento_pdf.py) con identidad Glassmorphism fintech: banda slate #0F172A, pill dorado #F59E0B con el número, tarjetas Facturar a / Resumen (factura) y Cobrado por / Cobrado a (cuenta), tabla con cabecera oscura + zebra multilínea, caja de TOTAL/NETO en slate con cifra dorada, footer con barra bicolor violeta/oro y paginación; razones sociales largas se envuelven; separador de miles con punto; muestras revisadas visualmente (5 PDFs en muestras/, gitignored)",
     "Bugs corregidos: sliders restrictivos (USD step 50, TRM step 50) -> number_input step 1 con eco en vivo del valor con miles (eco_cop/eco_usd/eco_trm en main.py); steps COP 50k/100k -> 1.000; Factura y Cuenta de cobro sin st.form (vista previa realmente viva) con validación por campo junto al campo que falla; textos superpuestos: el contenido de expanders cerrados se pintaba encima del contenido inferior, corregido en ui.py (details:not([open]) display:none); badge de TRM ya no dice 'datos.gov.co' cuando la fuente es fallback",
-    "Rediseño app 2026 (skill ui-ux-pro-max, sistema 'Glassmorphism' + paleta 'Gold trust + purple tech'): mesh aurora fijo sobre slate #0F172A, tarjetas .fco-card de vidrio (blur 14px, borde rgba blanco, reflejo superior), acento oro #F59E0B, CTA violeta #8B5CF6, info cian #38BDF8, ok esmeralda #34D399, tipografía DM Sans, hero con gradiente, sidebar de vidrio con nav dorada activa, radio principal como control segmentado, Plotly retematizado (DM Sans, dorado para la mejor barra), favicon :material/receipt_long: (sin emoji)"
+    "Rediseño app 2026 (skill ui-ux-pro-max, sistema 'Glassmorphism' + paleta 'Gold trust + purple tech'): mesh aurora fijo sobre slate #0F172A, tarjetas .fco-card de vidrio (blur 14px, borde rgba blanco, reflejo superior), acento oro #F59E0B, CTA violeta #8B5CF6, info cian #38BDF8, ok esmeralda #34D399, tipografía DM Sans, hero con gradiente, sidebar de vidrio con nav dorada activa, radio principal como control segmentado, Plotly retematizado (DM Sans, dorado para la mejor barra), favicon :material/receipt_long: (sin emoji)",
+    "Tests golden (snapshot) para factura_pdf y documento_pdf: normalización de /CreationDate, /ModDate e /ID del trailer; 5 casos cubiertos (factura_minima, factura_completa, factura_items_multiples, cuenta_cobro_minima, cuenta_cobro_con_retenciones); hashes en tests/golden/hashes.json; regen con REGEN_GOLDEN=1"
   ],
   "ya_existian": [
     "plataformas.py (9 plataformas), comparador.py, trm_live.py (3 fuentes + fallback), proyeccion.py (Art.241 ET), calculadora.py, Action TRM, página Cuenta de cobro, UVT 52.374 / SMMLV 1.750.905 (2026) con alias UVT_VIGENTE y SMMLV_VIGENTE"
   ],
   "en_progreso": "",
-  "siguiente_paso": "Snapshot/golden test del PDF de factura y cuenta de cobro; soportar varios ítems en el formulario de la cuenta de cobro.",
-  "tests_pasando": 152,
-  "notas_tecnicas": "pytest (PYTHONPATH=src) -> 152 passed, incluye AppTest. Smoke AppTest de las 7 páginas OK. QA visual programática con Claude Preview: detector JS de textos superpuestos en las 7 páginas (0 colisiones tras el fix de expanders), sin overflow horizontal a 375px, contraste medido texto 17:1 / muted 8.3:1 / oro 8.3:1, focus-visible y prefers-reduced-motion presentes. El tool de screenshot del preview se cuelga en esta máquina; usar preview_eval + snapshot. La skill de diseño vive en ~/.claude/skills/ui-ux-pro-max.",
+  "siguiente_paso": "Soportar varios ítems en el formulario de la cuenta de cobro.",
+  "tests_pasando": 157,
+  "notas_tecnicas": "pytest (PYTHONPATH=src) -> 157 passed (152 previos + 5 golden). Sin --ignore de test_app_cuenta_cobro.py: 161 passed. Golden tests: bytes reproducibles entre procesos normalizando /CreationDate, /ModDate e /ID. La skill de diseño vive en ~/.claude/skills/ui-ux-pro-max.",
   "pendiente_diseno": [
-    "Snapshot/golden test del PDF de factura y cuenta de cobro",
     "Cuenta de cobro con múltiples ítems"
   ]
 }
